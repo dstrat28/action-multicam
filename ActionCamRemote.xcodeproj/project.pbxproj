@@ -1,0 +1,391 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 60;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		ACR000000000000000000101 /* ActionCamRemoteApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACR000000000000000000001 /* ActionCamRemoteApp.swift */; };
+		ACR000000000000000000102 /* CameraModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACR000000000000000000002 /* CameraModels.swift */; };
+		ACR000000000000000000103 /* BLECameraDeviceClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACR000000000000000000003 /* BLECameraDeviceClient.swift */; };
+		ACR000000000000000000104 /* BLECameraScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACR000000000000000000004 /* BLECameraScanner.swift */; };
+		ACR000000000000000000105 /* GoProBLEClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACR000000000000000000005 /* GoProBLEClient.swift */; };
+		ACR000000000000000000106 /* DJIExperimentalBLEClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACR000000000000000000006 /* DJIExperimentalBLEClient.swift */; };
+		ACR000000000000000000107 /* CameraStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACR000000000000000000007 /* CameraStore.swift */; };
+		ACR000000000000000000108 /* DesignSystem.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACR000000000000000000008 /* DesignSystem.swift */; };
+		ACR000000000000000000109 /* CameraDashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACR000000000000000000009 /* CameraDashboardView.swift */; };
+		ACR000000000000000000110 /* CameraRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACR000000000000000000010 /* CameraRowView.swift */; };
+		ACR000000000000000000111 /* PreviewData.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACR000000000000000000011 /* PreviewData.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		ACR000000000000000000001 /* ActionCamRemoteApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActionCamRemoteApp.swift; sourceTree = "<group>"; };
+		ACR000000000000000000002 /* CameraModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraModels.swift; sourceTree = "<group>"; };
+		ACR000000000000000000003 /* BLECameraDeviceClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BLECameraDeviceClient.swift; sourceTree = "<group>"; };
+		ACR000000000000000000004 /* BLECameraScanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BLECameraScanner.swift; sourceTree = "<group>"; };
+		ACR000000000000000000005 /* GoProBLEClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GoProBLEClient.swift; sourceTree = "<group>"; };
+		ACR000000000000000000006 /* DJIExperimentalBLEClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DJIExperimentalBLEClient.swift; sourceTree = "<group>"; };
+		ACR000000000000000000007 /* CameraStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraStore.swift; sourceTree = "<group>"; };
+		ACR000000000000000000008 /* DesignSystem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesignSystem.swift; sourceTree = "<group>"; };
+		ACR000000000000000000009 /* CameraDashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraDashboardView.swift; sourceTree = "<group>"; };
+		ACR000000000000000000010 /* CameraRowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraRowView.swift; sourceTree = "<group>"; };
+		ACR000000000000000000011 /* PreviewData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreviewData.swift; sourceTree = "<group>"; };
+		ACR000000000000000000012 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		ACR000000000000000000013 /* ActionCamRemote.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ActionCamRemote.app; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		ACR000000000000000000200 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		ACR000000000000000000300 = {
+			isa = PBXGroup;
+			children = (
+				ACR000000000000000000301 /* ActionCamRemote */,
+				ACR000000000000000000302 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		ACR000000000000000000301 /* ActionCamRemote */ = {
+			isa = PBXGroup;
+			children = (
+				ACR000000000000000000001 /* ActionCamRemoteApp.swift */,
+				ACR000000000000000000012 /* Info.plist */,
+				ACR000000000000000000303 /* Models */,
+				ACR000000000000000000304 /* Bluetooth */,
+				ACR000000000000000000305 /* Services */,
+				ACR000000000000000000306 /* UI */,
+			);
+			path = ActionCamRemote;
+			sourceTree = "<group>";
+		};
+		ACR000000000000000000302 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				ACR000000000000000000013 /* ActionCamRemote.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		ACR000000000000000000303 /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				ACR000000000000000000002 /* CameraModels.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		ACR000000000000000000304 /* Bluetooth */ = {
+			isa = PBXGroup;
+			children = (
+				ACR000000000000000000003 /* BLECameraDeviceClient.swift */,
+				ACR000000000000000000004 /* BLECameraScanner.swift */,
+				ACR000000000000000000005 /* GoProBLEClient.swift */,
+				ACR000000000000000000006 /* DJIExperimentalBLEClient.swift */,
+			);
+			path = Bluetooth;
+			sourceTree = "<group>";
+		};
+		ACR000000000000000000305 /* Services */ = {
+			isa = PBXGroup;
+			children = (
+				ACR000000000000000000007 /* CameraStore.swift */,
+				ACR000000000000000000011 /* PreviewData.swift */,
+			);
+			path = Services;
+			sourceTree = "<group>";
+		};
+		ACR000000000000000000306 /* UI */ = {
+			isa = PBXGroup;
+			children = (
+				ACR000000000000000000008 /* DesignSystem.swift */,
+				ACR000000000000000000009 /* CameraDashboardView.swift */,
+				ACR000000000000000000010 /* CameraRowView.swift */,
+			);
+			path = UI;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		ACR000000000000000000400 /* ActionCamRemote */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = ACR000000000000000000401 /* Build configuration list for PBXNativeTarget "ActionCamRemote" */;
+			buildPhases = (
+				ACR000000000000000000500 /* Sources */,
+				ACR000000000000000000200 /* Frameworks */,
+				ACR000000000000000000501 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = ActionCamRemote;
+			productName = ActionCamRemote;
+			productReference = ACR000000000000000000013 /* ActionCamRemote.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		ACR000000000000000000600 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 2650;
+				LastUpgradeCheck = 2650;
+				TargetAttributes = {
+					ACR000000000000000000400 = {
+						CreatedOnToolsVersion = 26.5;
+					};
+				};
+			};
+			buildConfigurationList = ACR000000000000000000601 /* Build configuration list for PBXProject "ActionCamRemote" */;
+			compatibilityVersion = "Xcode 15.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = ACR000000000000000000300;
+			productRefGroup = ACR000000000000000000302 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				ACR000000000000000000400 /* ActionCamRemote */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		ACR000000000000000000501 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		ACR000000000000000000500 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				ACR000000000000000000101 /* ActionCamRemoteApp.swift in Sources */,
+				ACR000000000000000000102 /* CameraModels.swift in Sources */,
+				ACR000000000000000000103 /* BLECameraDeviceClient.swift in Sources */,
+				ACR000000000000000000104 /* BLECameraScanner.swift in Sources */,
+				ACR000000000000000000105 /* GoProBLEClient.swift in Sources */,
+				ACR000000000000000000106 /* DJIExperimentalBLEClient.swift in Sources */,
+				ACR000000000000000000107 /* CameraStore.swift in Sources */,
+				ACR000000000000000000108 /* DesignSystem.swift in Sources */,
+				ACR000000000000000000109 /* CameraDashboardView.swift in Sources */,
+				ACR000000000000000000110 /* CameraRowView.swift in Sources */,
+				ACR000000000000000000111 /* PreviewData.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		ACR000000000000000000700 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		ACR000000000000000000701 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		ACR000000000000000000702 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_ASSET_PATHS = "";
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = ActionCamRemote/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 0.1;
+				PRODUCT_BUNDLE_IDENTIFIER = com.ds.ActionCamRemote;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		ACR000000000000000000703 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_ASSET_PATHS = "";
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = ActionCamRemote/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 0.1;
+				PRODUCT_BUNDLE_IDENTIFIER = com.ds.ActionCamRemote;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		ACR000000000000000000401 /* Build configuration list for PBXNativeTarget "ActionCamRemote" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				ACR000000000000000000702 /* Debug */,
+				ACR000000000000000000703 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		ACR000000000000000000601 /* Build configuration list for PBXProject "ActionCamRemote" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				ACR000000000000000000700 /* Debug */,
+				ACR000000000000000000701 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = ACR000000000000000000600 /* Project object */;
+}

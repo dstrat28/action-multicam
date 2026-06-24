@@ -1,0 +1,687 @@
+import CoreBluetooth
+import Foundation
+
+enum GoProBLEUUID {
+    static let serviceControlAndQuery = CBUUID(string: "FEA6")
+    static let serviceCameraManagement = CBUUID(string: "b5f90090-aa8d-11e3-9046-0002a5d5c51b")
+
+    static let command = CBUUID(string: "b5f90072-aa8d-11e3-9046-0002a5d5c51b")
+    static let commandResponse = CBUUID(string: "b5f90073-aa8d-11e3-9046-0002a5d5c51b")
+    static let settings = CBUUID(string: "b5f90074-aa8d-11e3-9046-0002a5d5c51b")
+    static let settingsResponse = CBUUID(string: "b5f90075-aa8d-11e3-9046-0002a5d5c51b")
+    static let query = CBUUID(string: "b5f90076-aa8d-11e3-9046-0002a5d5c51b")
+    static let queryResponse = CBUUID(string: "b5f90077-aa8d-11e3-9046-0002a5d5c51b")
+}
+
+final class GoProBLEClient: NSObject, BLECameraDeviceClient {
+    let cameraID: UUID
+    let cameraName: String
+
+    private weak var peripheral: CBPeripheral?
+    private var commandCharacteristic: CBCharacteristic?
+    private var commandResponseCharacteristic: CBCharacteristic?
+    private var settingsCharacteristic: CBCharacteristic?
+    private var queryCharacteristic: CBCharacteristic?
+    private var queryResponseCharacteristic: CBCharacteristic?
+    private var keepAliveTimer: Timer?
+    private var statusPollTimer: Timer?
+    private var statusRefreshTimer: Timer?
+    private var statusFallbackTimer: Timer?
+    private var statusFallbackGeneration = 0
+    private var isRegisteredForStatusUpdates = false
+    private var hasRequestedHardwareInfo = false
+    private var hasClaimedExternalControl = false
+    private let onStatus: (UUID, CameraConnectionState, String?) -> Void
+    private let onCameraStatus: (UUID, CameraStatusUpdate) -> Void
+    private let onLog: (String) -> Void
+
+    init(
+        cameraID: UUID,
+        cameraName: String,
+        peripheral: CBPeripheral,
+        onStatus: @escaping (UUID, CameraConnectionState, String?) -> Void,
+        onCameraStatus: @escaping (UUID, CameraStatusUpdate) -> Void,
+        onLog: @escaping (String) -> Void
+    ) {
+        self.cameraID = cameraID
+        self.cameraName = cameraName
+        self.peripheral = peripheral
+        self.onStatus = onStatus
+        self.onCameraStatus = onCameraStatus
+        self.onLog = onLog
+        super.init()
+    }
+
+    func didConnect() {
+        peripheral?.delegate = self
+        peripheral?.discoverServices([
+            GoProBLEUUID.serviceControlAndQuery,
+            GoProBLEUUID.serviceCameraManagement
+        ])
+        startKeepAlive()
+    }
+
+    func didDisconnect(error: Error?) {
+        keepAliveTimer?.invalidate()
+        keepAliveTimer = nil
+        statusPollTimer?.invalidate()
+        statusPollTimer = nil
+        statusRefreshTimer?.invalidate()
+        statusRefreshTimer = nil
+        statusFallbackTimer?.invalidate()
+        statusFallbackTimer = nil
+        commandCharacteristic = nil
+        commandResponseCharacteristic = nil
+        settingsCharacteristic = nil
+        queryCharacteristic = nil
+        queryResponseCharacteristic = nil
+        isRegisteredForStatusUpdates = false
+        hasRequestedHardwareInfo = false
+        hasClaimedExternalControl = false
+    }
+
+    func send(_ command: CameraCommand) -> CameraCommandResult {
+        guard let peripheral else {
+            return result(for: command, status: .failed, message: "GoPro peripheral is unavailable.")
+        }
+
+        switch command {
+        case .startRecording:
+            let result = writeCommand(.setShutter(on: true), to: peripheral, label: command)
+            if result.status == .sent {
+                onCameraStatus(cameraID, CameraStatusUpdate(recordingState: .recording, currentMode: .video))
+                scheduleStatusRefresh(fallbackRecordingState: .recording)
+            }
+            return result
+        case .stopRecording:
+            let result = writeCommand(.setShutter(on: false), to: peripheral, label: command)
+            if result.status == .sent {
+                onCameraStatus(cameraID, CameraStatusUpdate(recordingState: .stopped))
+                scheduleStatusRefresh(fallbackRecordingState: .stopped)
+            }
+            return result
+        case .toggleRecording:
+            let result = writeCommand(.pressShutterButton, to: peripheral, label: command)
+            scheduleStatusRefresh()
+            return result
+        case let .setMode(mode):
+            let result = writeCommand(.loadPresetGroup(mode), to: peripheral, label: command)
+            scheduleStatusRefresh()
+            return result
+        case .cycleMode:
+            let result = writeCommand(.pressModeButton, to: peripheral, label: command)
+            scheduleStatusRefresh()
+            return result
+        case let .applySetting(setting):
+            guard let settingsCharacteristic else {
+                return result(for: command, status: .skipped, message: "Settings characteristic is not ready yet.")
+            }
+            let payload = GoProPacket.commandPayload(id: setting.id, parameters: [setting.value])
+            peripheral.writeValue(GoProPacket.packetize(payload), for: settingsCharacteristic, type: .withResponse)
+            return result(for: command, status: .sent, message: "Queued GoPro setting \(setting.id).")
+        case .keepAlive:
+            return writeSettingCommand(.keepAlive, to: peripheral, label: command)
+        }
+    }
+}
+
+extension GoProBLEClient {
+    func peripheral(_ peripheral: CBPeripheral, didDiscoverServices error: Error?) {
+        if let error {
+            onStatus(cameraID, .failed(error.localizedDescription), nil)
+            return
+        }
+
+        peripheral.services?.forEach { service in
+            peripheral.discoverCharacteristics(nil, for: service)
+        }
+    }
+
+    func peripheral(
+        _ peripheral: CBPeripheral,
+        didDiscoverCharacteristicsFor service: CBService,
+        error: Error?
+    ) {
+        if let error {
+            onStatus(cameraID, .failed(error.localizedDescription), nil)
+            return
+        }
+
+        service.characteristics?.forEach { characteristic in
+            switch characteristic.uuid {
+            case GoProBLEUUID.command:
+                commandCharacteristic = characteristic
+            case GoProBLEUUID.commandResponse:
+                commandResponseCharacteristic = characteristic
+            case GoProBLEUUID.settings:
+                settingsCharacteristic = characteristic
+            case GoProBLEUUID.query:
+                queryCharacteristic = characteristic
+            case GoProBLEUUID.queryResponse:
+                queryResponseCharacteristic = characteristic
+            default:
+                break
+            }
+
+            if characteristic.properties.contains(.notify) || characteristic.properties.contains(.indicate) {
+                peripheral.setNotifyValue(true, for: characteristic)
+            }
+        }
+
+        if commandCharacteristic != nil {
+            onStatus(cameraID, .connected, "GoPro command characteristic is ready.")
+        }
+
+        configureReadyNotificationsIfPossible()
+    }
+
+    func peripheral(
+        _ peripheral: CBPeripheral,
+        didUpdateNotificationStateFor characteristic: CBCharacteristic,
+        error: Error?
+    ) {
+        if let error {
+            onLog("\(cameraName): notify for \(characteristic.uuid.uuidString) failed: \(error.localizedDescription)")
+            return
+        }
+
+        guard characteristic.isNotifying else { return }
+
+        switch characteristic.uuid {
+        case GoProBLEUUID.commandResponse:
+            requestHardwareInfo()
+            claimExternalControlIfPossible(reason: "connection")
+        case GoProBLEUUID.queryResponse:
+            registerForStatusUpdates()
+            requestStatusValues(fallbackRecordingState: .stopped)
+            startStatusPolling()
+        default:
+            break
+        }
+    }
+
+    func peripheral(
+        _ peripheral: CBPeripheral,
+        didWriteValueFor characteristic: CBCharacteristic,
+        error: Error?
+    ) {
+        if let error {
+            onLog("\(cameraName): write to \(characteristic.uuid.uuidString) failed: \(error.localizedDescription)")
+        }
+    }
+
+    func peripheral(
+        _ peripheral: CBPeripheral,
+        didUpdateValueFor characteristic: CBCharacteristic,
+        error: Error?
+    ) {
+        if let error {
+            onLog("\(cameraName): notification error: \(error.localizedDescription)")
+            return
+        }
+
+        guard let value = characteristic.value else { return }
+        if characteristic.uuid == GoProBLEUUID.commandResponse {
+            handleCommandResponse(value)
+        } else if characteristic.uuid == GoProBLEUUID.queryResponse {
+            handleQueryResponse(value)
+        }
+        onLog("\(cameraName): \(characteristic.uuid.uuidString) \(value.hexString)")
+    }
+}
+
+private extension GoProBLEClient {
+    enum GoProCommand {
+        case setShutter(on: Bool)
+        case getHardwareInfo
+        case keepAlive
+        case pressShutterButton
+        case pressModeButton
+        case loadPresetGroup(CaptureMode)
+
+        var payload: Data {
+            switch self {
+            case let .setShutter(on):
+                GoProPacket.commandPayload(id: 0x01, parameters: [on ? 0x01 : 0x00])
+            case .getHardwareInfo:
+                GoProPacket.commandPayload(id: 0x3C, parameters: [])
+            case .keepAlive:
+                GoProPacket.commandPayload(id: 0x5B, parameters: [0x42])
+            case .pressShutterButton:
+                GoProPacket.commandPayload(id: 0x1B, parameterData: [Data([0x00, 0x00])])
+            case .pressModeButton:
+                GoProPacket.commandPayload(id: 0x1B, parameterData: [Data([0x01, 0x00])])
+            case let .loadPresetGroup(mode):
+                GoProPacket.commandPayload(
+                    id: 0x3E,
+                    parameterData: [GoProPacket.uint32(mode.goProPresetGroupID)]
+                )
+            }
+        }
+    }
+
+    enum GoProQuery {
+        static let getStatusValues: UInt8 = 0x13
+        static let registerStatusUpdates: UInt8 = 0x53
+        static let statusUpdateNotification: UInt8 = 0x93
+
+        static let encodingStatusID: UInt8 = 0x0A
+        static let flatModeStatusID: UInt8 = 0x59
+        static let presetGroupStatusID: UInt8 = 0x60
+
+        static let statusIDs: [UInt8] = [
+            encodingStatusID,
+            flatModeStatusID,
+            presetGroupStatusID
+        ]
+    }
+
+    func configureReadyNotificationsIfPossible() {
+        if commandResponseCharacteristic?.isNotifying == true {
+            requestHardwareInfo()
+            claimExternalControlIfPossible(reason: "connection")
+        }
+
+        if queryResponseCharacteristic?.isNotifying == true {
+            registerForStatusUpdates()
+            requestStatusValues(fallbackRecordingState: .stopped)
+            startStatusPolling()
+        }
+    }
+
+    func writeCommand(
+        _ goProCommand: GoProCommand,
+        to peripheral: CBPeripheral,
+        label command: CameraCommand
+    ) -> CameraCommandResult {
+        guard let commandCharacteristic else {
+            return result(for: command, status: .skipped, message: "GoPro command characteristic is not ready yet.")
+        }
+
+        claimExternalControlIfPossible(reason: command.label)
+        peripheral.writeValue(
+            GoProPacket.packetize(goProCommand.payload),
+            for: commandCharacteristic,
+            type: .withResponse
+        )
+        onLog("\(cameraName): GoPro \(command.label) -> command \(goProCommand.payload.hexString)")
+
+        return result(for: command, status: .sent, message: "Queued \(command.label) over Open GoPro BLE.")
+    }
+
+    func requestHardwareInfo() {
+        guard let peripheral, let commandCharacteristic else { return }
+        guard !hasRequestedHardwareInfo else { return }
+
+        let payload = GoProCommand.getHardwareInfo.payload
+        peripheral.writeValue(
+            GoProPacket.packetize(payload),
+            for: commandCharacteristic,
+            type: .withResponse
+        )
+        hasRequestedHardwareInfo = true
+        onLog("\(cameraName): GoPro request hardware info \(payload.hexString)")
+    }
+
+    func claimExternalControlIfPossible(reason: String) {
+        guard let peripheral, let commandCharacteristic, !hasClaimedExternalControl else { return }
+
+        let payload = GoProPacket.protobufPayload(
+            featureID: 0xF1,
+            actionID: 0x69,
+            message: Data([0x08, 0x02])
+        )
+        peripheral.writeValue(
+            GoProPacket.packetize(payload),
+            for: commandCharacteristic,
+            type: .withResponse
+        )
+        hasClaimedExternalControl = true
+        onLog("\(cameraName): GoPro claim external control (\(reason)) \(payload.hexString)")
+    }
+
+    func writeSettingCommand(
+        _ goProCommand: GoProCommand,
+        to peripheral: CBPeripheral,
+        label command: CameraCommand
+    ) -> CameraCommandResult {
+        guard let settingsCharacteristic else {
+            return result(for: command, status: .skipped, message: "GoPro settings characteristic is not ready yet.")
+        }
+
+        peripheral.writeValue(
+            GoProPacket.packetize(goProCommand.payload),
+            for: settingsCharacteristic,
+            type: .withResponse
+        )
+        if command != .keepAlive {
+            onLog("\(cameraName): GoPro \(command.label) -> settings \(goProCommand.payload.hexString)")
+        }
+
+        return result(for: command, status: .sent, message: "Queued \(command.label) over Open GoPro BLE.")
+    }
+
+    func startKeepAlive() {
+        keepAliveTimer?.invalidate()
+        keepAliveTimer = Timer.scheduledTimer(withTimeInterval: 3.0, repeats: true) { [weak self] _ in
+            guard let self else { return }
+            _ = self.send(.keepAlive)
+        }
+    }
+
+    func registerForStatusUpdates() {
+        guard let peripheral, let queryCharacteristic else { return }
+        guard !isRegisteredForStatusUpdates else { return }
+        let payload = GoProPacket.queryPayload(
+            id: GoProQuery.registerStatusUpdates,
+            elements: GoProQuery.statusIDs
+        )
+        peripheral.writeValue(GoProPacket.packetize(payload), for: queryCharacteristic, type: .withResponse)
+        isRegisteredForStatusUpdates = true
+        onLog("\(cameraName): GoPro register status updates \(payload.hexString)")
+    }
+
+    func requestStatusValues(
+        fallbackRecordingState: CameraRecordingState? = nil,
+        shouldLog: Bool = true
+    ) {
+        guard let peripheral, let queryCharacteristic else { return }
+        let payload = GoProPacket.queryPayload(
+            id: GoProQuery.getStatusValues,
+            elements: GoProQuery.statusIDs
+        )
+        peripheral.writeValue(GoProPacket.packetize(payload), for: queryCharacteristic, type: .withResponse)
+        if shouldLog {
+            onLog("\(cameraName): GoPro request status values \(payload.hexString)")
+        }
+        scheduleStatusFallback(fallbackRecordingState)
+    }
+
+    func scheduleStatusRefresh(fallbackRecordingState: CameraRecordingState? = nil) {
+        statusRefreshTimer?.invalidate()
+        statusRefreshTimer = Timer.scheduledTimer(withTimeInterval: 0.7, repeats: false) { [weak self] _ in
+            self?.requestStatusValues(fallbackRecordingState: fallbackRecordingState)
+        }
+    }
+
+    func startStatusPolling() {
+        guard statusPollTimer == nil else { return }
+        statusPollTimer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: true) { [weak self] _ in
+            self?.requestStatusValues(shouldLog: false)
+        }
+    }
+
+    func scheduleStatusFallback(_ recordingState: CameraRecordingState?) {
+        guard let recordingState else { return }
+        statusFallbackGeneration += 1
+        let generation = statusFallbackGeneration
+        statusFallbackTimer?.invalidate()
+        statusFallbackTimer = Timer.scheduledTimer(withTimeInterval: 1.5, repeats: false) { [weak self] _ in
+            guard let self, self.statusFallbackGeneration == generation else { return }
+            self.onCameraStatus(self.cameraID, CameraStatusUpdate(recordingState: recordingState))
+        }
+    }
+
+    func handleCommandResponse(_ value: Data) {
+        guard let payload = GoProPacket.depacketize(value) else { return }
+        logCommandResponsePayload(payload)
+
+        guard let model = payload.goProModel else { return }
+        onLog("\(cameraName): GoPro hardware reports \(model.rawValue).")
+        onCameraStatus(cameraID, CameraStatusUpdate(model: model))
+    }
+
+    func logCommandResponsePayload(_ payload: Data) {
+        guard let commandID = payload.first else { return }
+        let statusIndex = payload.index(after: payload.startIndex)
+        let status = statusIndex < payload.endIndex ? payload[statusIndex] : nil
+        let statusLabel = status.map { $0 == 0 ? "success" : "status 0x\($0.hexByte)" } ?? "no status"
+        onLog(
+            "\(cameraName): GoPro command response 0x\(commandID.hexByte) \(statusLabel), payload \(payload.hexString)"
+        )
+    }
+
+    func handleQueryResponse(_ value: Data) {
+        guard let payload = GoProPacket.depacketize(value), let responseID = payload.first else { return }
+        guard responseID == GoProQuery.getStatusValues
+            || responseID == GoProQuery.registerStatusUpdates
+            || responseID == GoProQuery.statusUpdateNotification else {
+            return
+        }
+
+        let values = GoProPacket.parseTLVValuesScanning(
+            in: payload.dropFirst(),
+            keeping: Set(GoProQuery.statusIDs)
+        )
+        var update = CameraStatusUpdate()
+
+        if let encoding = values[GoProQuery.encodingStatusID]?.first {
+            update.recordingState = encoding == 0 ? .stopped : .recording
+            statusFallbackGeneration += 1
+            statusFallbackTimer?.invalidate()
+            statusFallbackTimer = nil
+        }
+
+        if let flatMode = values[GoProQuery.flatModeStatusID],
+           let mode = CaptureMode(goProFlatModeData: flatMode) {
+            update.currentMode = mode
+        } else if let presetGroup = values[GoProQuery.presetGroupStatusID],
+           let mode = CaptureMode(goProPresetGroupData: presetGroup) {
+            update.currentMode = mode
+        }
+
+        guard update.recordingState != nil || update.currentMode != nil else { return }
+        onCameraStatus(cameraID, update)
+    }
+}
+
+enum GoProPacket {
+    static func commandPayload(id: UInt8, parameters: [UInt8]) -> Data {
+        commandPayload(id: id, parameterData: parameters.map { Data([$0]) })
+    }
+
+    static func commandPayload(id: UInt8, parameterData: [Data]) -> Data {
+        var bytes: [UInt8] = [id]
+        parameterData.forEach { value in
+            bytes.append(UInt8(value.count))
+            bytes.append(contentsOf: value)
+        }
+        return Data(bytes)
+    }
+
+    static func queryPayload(id: UInt8, elements: [UInt8]) -> Data {
+        Data([id, UInt8(elements.count)] + elements)
+    }
+
+    static func protobufPayload(featureID: UInt8, actionID: UInt8, message: Data = Data()) -> Data {
+        Data([featureID, actionID]) + message
+    }
+
+    static func uint32(_ value: UInt32) -> Data {
+        Data([
+            UInt8((value >> 24) & 0xFF),
+            UInt8((value >> 16) & 0xFF),
+            UInt8((value >> 8) & 0xFF),
+            UInt8(value & 0xFF)
+        ])
+    }
+
+    static func packetize(_ payload: Data) -> Data {
+        var bytes: [UInt8] = []
+        let length = payload.count
+
+        if length <= 0x1FFF {
+            bytes.append(0x20 | UInt8((length >> 8) & 0x1F))
+            bytes.append(UInt8(length & 0xFF))
+            bytes.append(contentsOf: payload)
+            return Data(bytes)
+        }
+
+        bytes.append(0x1F)
+        bytes.append(contentsOf: payload.prefix(0x1FFF))
+        return Data(bytes)
+    }
+
+    static func depacketize(_ packet: Data) -> Data? {
+        guard let first = packet.first else { return nil }
+
+        if (first & 0xE0) == 0x20 {
+            guard packet.count >= 2 else { return nil }
+            let lengthHigh = Int(first & 0x1F) << 8
+            let lengthLow = Int(packet[packet.index(after: packet.startIndex)])
+            let length = lengthHigh | lengthLow
+            guard packet.count >= length + 2 else { return nil }
+            let payloadStart = packet.index(packet.startIndex, offsetBy: 2)
+            let payloadEnd = packet.index(payloadStart, offsetBy: length)
+            return Data(packet[payloadStart ..< payloadEnd])
+        }
+
+        if first <= 0x1F {
+            let length = Int(first)
+            guard packet.count >= length + 1 else { return Data(packet) }
+            let payloadStart = packet.index(after: packet.startIndex)
+            let payloadEnd = packet.index(payloadStart, offsetBy: length)
+            return Data(packet[payloadStart ..< payloadEnd])
+        }
+
+        return Data(packet)
+    }
+
+    static func parseTLVValuesScanning(in payload: Data.SubSequence, keeping ids: Set<UInt8>) -> [UInt8: Data] {
+        let payloadData = Data(payload)
+        var bestValues: [UInt8: Data] = [:]
+        let maxOffset = min(payloadData.count, 4)
+
+        for offset in 0 ... maxOffset {
+            guard let start = payloadData.index(
+                payloadData.startIndex,
+                offsetBy: offset,
+                limitedBy: payloadData.endIndex
+            ) else {
+                continue
+            }
+
+            let parsed = parseTLVValues(in: payloadData[start ..< payloadData.endIndex])
+                .filter { ids.contains($0.key) }
+            if parsed.count > bestValues.count {
+                bestValues = parsed
+            }
+        }
+
+        return bestValues
+    }
+
+    static func parseTLVValues(in payload: Data.SubSequence) -> [UInt8: Data] {
+        var values: [UInt8: Data] = [:]
+        var offset = payload.startIndex
+
+        while offset < payload.endIndex {
+            let id = payload[offset]
+            offset = payload.index(after: offset)
+            guard offset < payload.endIndex else { break }
+            let length = Int(payload[offset])
+            offset = payload.index(after: offset)
+            guard let valueEnd = payload.index(offset, offsetBy: length, limitedBy: payload.endIndex) else { break }
+            values[id] = Data(payload[offset ..< valueEnd])
+            offset = valueEnd
+        }
+
+        return values
+    }
+}
+
+private extension Data {
+    var hexString: String {
+        map { String(format: "%02X", $0) }.joined(separator: " ")
+    }
+
+    var goProModel: CameraModel? {
+        let text = printableASCIIText.lowercased()
+        if text.contains("hero13") || text.contains("hero 13") || text.contains("h24.01") {
+            return .goproHero13Black
+        }
+        return nil
+    }
+
+    var printableASCIIText: String {
+        String(
+            bytes: map { byte in
+                (0x20 ... 0x7E).contains(byte) ? byte : 0x20
+            },
+            encoding: .ascii
+        ) ?? ""
+    }
+
+    var uint32Candidates: Set<UInt32> {
+        var values: Set<UInt32> = []
+        if count == 1, let first {
+            values.insert(UInt32(first))
+        }
+        if count == 2 {
+            let bytes = Array(self)
+            values.insert(UInt32(bytes[0]) << 8 | UInt32(bytes[1]))
+            values.insert(UInt32(bytes[1]) << 8 | UInt32(bytes[0]))
+        }
+        if count >= 4 {
+            let bytes = Array(prefix(4))
+            values.insert(
+                UInt32(bytes[0]) << 24
+                    | UInt32(bytes[1]) << 16
+                    | UInt32(bytes[2]) << 8
+                    | UInt32(bytes[3])
+            )
+            values.insert(
+                UInt32(bytes[3]) << 24
+                    | UInt32(bytes[2]) << 16
+                    | UInt32(bytes[1]) << 8
+                    | UInt32(bytes[0])
+            )
+        }
+        return values
+    }
+}
+
+private extension UInt8 {
+    var hexByte: String {
+        String(format: "%02X", self)
+    }
+}
+
+private extension CaptureMode {
+    var goProPresetGroupID: UInt32 {
+        switch self {
+        case .video:
+            1000
+        case .photo:
+            1001
+        case .timelapse:
+            1002
+        }
+    }
+
+    init?(goProPresetGroupData data: Data) {
+        let candidates = data.uint32Candidates
+        if candidates.contains(1000) {
+            self = .video
+        } else if candidates.contains(1001) {
+            self = .photo
+        } else if candidates.contains(1002) {
+            self = .timelapse
+        } else {
+            return nil
+        }
+    }
+
+    init?(goProFlatModeData data: Data) {
+        let candidates = data.uint32Candidates
+        if !candidates.isDisjoint(with: [12, 15, 22, 27, 29, 30, 31, 32]) {
+            self = .video
+        } else if !candidates.isDisjoint(with: [13, 20, 21, 24, 26]) {
+            self = .timelapse
+        } else if !candidates.isDisjoint(with: [16, 17, 18, 19, 25]) {
+            self = .photo
+        } else {
+            return nil
+        }
+    }
+}
