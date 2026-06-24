@@ -1,28 +1,40 @@
 # TestFlight
 
-This project can be archived locally for TestFlight with Xcode command-line tools.
+This project is set up for TestFlight through App Store Connect. Xcode Cloud can build on pushes to GitHub; local archive/upload commands are kept here as a fallback.
 
 ## Current App Metadata
 
-- App display name: `Multicam`
+- App Store Connect name: `Action Multicam Remote`
+- App display name: `Action Multicam`
 - Bundle ID: `com.ds.ActionCamRemote`
 - Version: `0.1`
-- Build: `1`
-- Team ID used for local archive attempts: `2WX2Z9452K`
+- Next build: `2`
+- App Store Connect app ID: `6784017391`
+- Team ID: `2WX2Z9452K`
 
-## App Store Connect Setup
+## App Store Connect Status
 
-Before uploading a build, create an App Store Connect app record that matches the bundle ID:
+The App Store Connect app record exists:
 
 - Platform: iOS
-- Name: Multicam, or Action Multicam if `Multicam` is unavailable
+- Name: `Action Multicam Remote`
 - Bundle ID: `com.ds.ActionCamRemote`
 - SKU: `action-multicam-ios`
-- Primary language: English
+- Primary language: English (U.S.)
 
-The first upload attempt on June 24, 2026 successfully archived the app, but App Store Connect returned zero apps for `com.ds.ActionCamRemote`, so upload could not continue until this app record exists.
+Build `0.1 (1)` was uploaded from Xcode and is visible in TestFlight. Build `0.1 (2)` includes the release-only diagnostics cleanup, `Action Multicam` in-app title, and `ITSAppUsesNonExemptEncryption=false`.
 
-## Archive
+## Xcode Cloud
+
+Push to GitHub to trigger the configured Xcode Cloud workflow. After the build finishes processing in App Store Connect:
+
+1. Open the app in App Store Connect.
+2. Go to TestFlight > iOS.
+3. Confirm the latest build is available.
+4. Add it to the external beta group.
+5. Submit the first external build for Beta App Review.
+
+## Local Archive Fallback
 
 ```sh
 xcodebuild \
@@ -30,20 +42,18 @@ xcodebuild \
   -scheme ActionCamRemote \
   -configuration Release \
   -destination 'generic/platform=iOS' \
-  -archivePath /tmp/action-multicam-0.1-1.xcarchive \
+  -archivePath /tmp/action-multicam-0.1-2.xcarchive \
   DEVELOPMENT_TEAM=2WX2Z9452K \
   -allowProvisioningUpdates \
   clean archive
 ```
 
-## Upload
-
-After the App Store Connect app record exists, upload the archive:
+## Local Upload Fallback
 
 ```sh
 xcodebuild \
   -exportArchive \
-  -archivePath /tmp/action-multicam-0.1-1.xcarchive \
+  -archivePath /tmp/action-multicam-0.1-2.xcarchive \
   -exportPath /tmp/action-multicam-testflight-export \
   -exportOptionsPlist ci/TestFlightExportOptions.plist \
   -allowProvisioningUpdates
@@ -60,4 +70,3 @@ Once the build appears in App Store Connect:
 3. Complete Test Information and submit the first external build for Beta App Review.
 4. After approval, enable Public Link for the external group.
 5. Replace the placeholder link in `README.md` with the generated `https://testflight.apple.com/join/...` URL.
-

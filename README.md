@@ -1,12 +1,12 @@
-# Multicam
+# Action Multicam
 
 Native iOS app for controlling multiple action cameras over Bluetooth.
 
-Multicam is built for simultaneous multi-camera capture control. It can pair remembered cameras, reconnect to available cameras, select which cameras should be controlled, and start/stop recording across selected cameras.
+Action Multicam is built for simultaneous multi-camera capture control. It can pair remembered cameras, reconnect to available cameras, select which cameras should be controlled, and start/stop recording across selected cameras.
 
 GoPro support is built on the public Open GoPro BLE API. DJI Action/Nano support is experimental and based on observed BLE/DUML behavior because DJI does not publish an equivalent camera-control API for these cameras. The app only enables controls for camera models that have been tested directly.
 
-Multicam is an independent project and is not affiliated with, endorsed by, or sponsored by GoPro, DJI, or their affiliates.
+Action Multicam is an independent project and is not affiliated with, endorsed by, or sponsored by GoPro, DJI, or their affiliates.
 
 ## Status
 
@@ -14,7 +14,7 @@ This is an early hardware-driven project. The app currently targets iOS 17+ and 
 
 ## TestFlight
 
-Public TestFlight link: coming after the App Store Connect app record and first external beta review are complete.
+Public TestFlight link: coming after the first external beta review is complete.
 
 Release/archive notes live in [`docs/testflight.md`](docs/testflight.md).
 
