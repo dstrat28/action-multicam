@@ -36,23 +36,25 @@ struct CameraRowView: View {
                         .lineLimit(3)
                 }
 
-                if camera.unsupportedReason == nil,
-                   isShowingDiagnostics,
-                   let detail = camera.connectionState.detail {
-                    Text(detail)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(2)
-                }
+                #if DEBUG
+                if isShowingDiagnostics {
+                    if camera.unsupportedReason == nil,
+                       let detail = camera.connectionState.detail {
+                        Text(detail)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(2)
+                    }
 
-                if let diagnosticDetail = store.cameraDiagnosticDetail(for: camera),
-                   shouldShowDiagnosticDetail,
-                   isShowingDiagnostics {
-                    Text(diagnosticDetail)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(2)
+                    if let diagnosticDetail = store.cameraDiagnosticDetail(for: camera),
+                       shouldShowDiagnosticDetail {
+                        Text(diagnosticDetail)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(2)
+                    }
                 }
+                #endif
             }
 
             Spacer(minLength: 8)

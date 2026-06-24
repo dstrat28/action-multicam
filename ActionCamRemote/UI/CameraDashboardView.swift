@@ -12,15 +12,17 @@ struct CameraDashboardView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
                     ControlDeckView()
-                    CameraListView(isShowingDiagnostics: isShowingDiagnostics) {
+                    CameraListView(isShowingDiagnostics: activeDiagnosticsVisibility) {
                         isManagingCameras = true
                     }
+                    #if DEBUG
                     DiagnosticsView(isExpanded: $isShowingDiagnostics)
+                    #endif
                 }
                 .padding()
             }
             .background(Color.acrPanel.opacity(0.45))
-            .navigationTitle("Multicam")
+            .navigationTitle("Action Multicam")
             .toolbar {
                 ToolbarItemGroup(placement: .topBarTrailing) {
                     Button {
@@ -38,6 +40,14 @@ struct CameraDashboardView: View {
                 .presentationDetents([.large], selection: $manageCameraDetent)
             }
         }
+    }
+
+    private var activeDiagnosticsVisibility: Bool {
+        #if DEBUG
+        isShowingDiagnostics
+        #else
+        false
+        #endif
     }
 }
 
