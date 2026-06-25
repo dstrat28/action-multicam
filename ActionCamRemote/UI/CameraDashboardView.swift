@@ -128,13 +128,8 @@ private struct CameraListView: View {
                         .font(.largeTitle)
                         .foregroundStyle(.secondary)
 
-                    Text("No Cameras Connected")
+                    Text("Previously connected cameras will show here")
                         .font(.headline)
-
-                    Text("Use Manage Cameras to pair cameras. Remembered cameras show here as Connected, Available, or Not Connected.")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                        .multilineTextAlignment(.center)
                 }
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 30)
