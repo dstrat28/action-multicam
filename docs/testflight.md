@@ -10,7 +10,7 @@ Public TestFlight link: https://testflight.apple.com/join/ecxSpXZX
 - App display name: `Multicam`
 - Bundle ID: `com.ds.ActionCamRemote`
 - Version: `0.1`
-- Next build: `2`
+- Build number: set automatically by Xcode Cloud
 - App Store Connect app ID: `6784017391`
 - Team ID: `2WX2Z9452K`
 
@@ -35,6 +35,15 @@ Push to GitHub to trigger the configured Xcode Cloud workflow. After the build f
 3. Confirm the latest build is available.
 4. Add it to the external beta group.
 5. Submit the first external build for Beta App Review.
+
+Xcode Cloud has its own integer build-number counter. Because local builds `0.1 (1)` and `0.1 (2)` were uploaded before Xcode Cloud distribution, set the workflow's next build number to `3` once in App Store Connect:
+
+1. Open the app in App Store Connect.
+2. Go to Xcode Cloud > Settings.
+3. Open the Build Number tab.
+4. Edit Next Build Number to `3` or higher.
+
+After that, Xcode Cloud increments the build number automatically for each cloud build.
 
 ## Local Archive Fallback
 
