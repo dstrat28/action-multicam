@@ -76,11 +76,7 @@ struct CameraRowView: View {
             }
         }
         .padding(12)
-        .background(.background, in: RoundedRectangle(cornerRadius: 8))
-        .overlay {
-            RoundedRectangle(cornerRadius: 8)
-                .stroke(camera.isSelected ? Color.acrReady.opacity(0.55) : Color.acrLine, lineWidth: 1)
-        }
+        .acrCard(stroke: camera.isSelected ? Color.acrReady.opacity(0.55) : Color.acrLine)
     }
 
     private var selectionColor: Color {

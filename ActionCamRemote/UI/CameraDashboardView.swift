@@ -21,7 +21,7 @@ struct CameraDashboardView: View {
                 }
                 .padding()
             }
-            .background(Color.acrPanel.opacity(0.45))
+            .background(Color.acrAppBackground)
             .navigationTitle("Action Cam Remote")
             .toolbar {
                 ToolbarItemGroup(placement: .topBarTrailing) {
@@ -88,11 +88,7 @@ private struct ControlDeckView: View {
                 .foregroundStyle(store.canStartMulticamRecording ? Color.acrReady : .secondary)
         }
         .padding()
-        .background(.background, in: RoundedRectangle(cornerRadius: 8))
-        .overlay {
-            RoundedRectangle(cornerRadius: 8)
-            .stroke(Color.acrLine, lineWidth: 1)
-        }
+        .acrCard()
     }
 
     private var startButtonTitle: String {
@@ -134,7 +130,7 @@ private struct CameraListView: View {
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 30)
                 .padding(.horizontal)
-                .background(.background, in: RoundedRectangle(cornerRadius: 8))
+                .acrCard()
             } else {
                 LazyVStack(spacing: 10) {
                     ForEach(store.pairedCameras) { camera in
@@ -289,11 +285,7 @@ private struct DiagnosticsView: View {
                 .font(.headline)
         }
         .padding()
-        .background(.background, in: RoundedRectangle(cornerRadius: 8))
-        .overlay {
-            RoundedRectangle(cornerRadius: 8)
-                .stroke(Color.acrLine, lineWidth: 1)
-        }
+        .acrCard()
     }
 }
 
@@ -329,7 +321,7 @@ private struct DJIStatusProbeView: View {
                         .controlSize(.small)
                     }
                     .padding(10)
-                    .background(.background, in: RoundedRectangle(cornerRadius: 8))
+                    .acrInsetPanel()
                 }
             }
         }
@@ -350,7 +342,7 @@ private struct RecentResultsView: View {
                     .foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding()
-                    .background(.background, in: RoundedRectangle(cornerRadius: 8))
+                    .acrInsetPanel()
             } else {
                 ForEach(store.commandResults.prefix(6)) { result in
                     HStack(alignment: .top, spacing: 10) {
@@ -369,7 +361,7 @@ private struct RecentResultsView: View {
                         Spacer()
                     }
                     .padding(10)
-                    .background(.background, in: RoundedRectangle(cornerRadius: 8))
+                    .acrInsetPanel()
                 }
             }
         }
@@ -416,7 +408,7 @@ private struct EventLogView: View {
                     .foregroundStyle(.secondary)
                     .padding()
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(.background, in: RoundedRectangle(cornerRadius: 8))
+                    .acrInsetPanel()
             } else {
                 VStack(alignment: .leading, spacing: 6) {
                     ForEach(store.eventLog.prefix(30), id: \.self) { line in
@@ -428,7 +420,7 @@ private struct EventLogView: View {
                 }
                 .padding()
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(.background, in: RoundedRectangle(cornerRadius: 8))
+                .acrInsetPanel()
             }
         }
     }
