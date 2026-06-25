@@ -28,6 +28,7 @@ final class CameraStore {
     @ObservationIgnored private let goProWakeConnectionTimeoutDelay: Duration = .seconds(30)
     @ObservationIgnored private let action6WakeConnectionTimeoutDelay: Duration = .seconds(28)
     @ObservationIgnored private let defaultStartStateGuardInterval: TimeInterval = 5
+    @ObservationIgnored private let maxManualPairConnectionFailures = 3
     @ObservationIgnored private let pocket3StartStateGuardInterval: TimeInterval = 1.5
     @ObservationIgnored private let stopStateGuardInterval: TimeInterval = 2.5
     @ObservationIgnored private var wakeRetryTasksByCameraID: [UUID: Task<Void, Never>] = [:]
@@ -36,9 +37,11 @@ final class CameraStore {
     @ObservationIgnored private var connectionTimeoutTasksByCameraID: [UUID: Task<Void, Never>] = [:]
     @ObservationIgnored private var availabilityTimeoutTasksByCameraID: [UUID: Task<Void, Never>] = [:]
     @ObservationIgnored private var reconnectTasksByCameraID: [UUID: Task<Void, Never>] = [:]
+    @ObservationIgnored private var manualPairRetryTasksByCameraID: [UUID: Task<Void, Never>] = [:]
     @ObservationIgnored private var djiIdleDisconnectTasksByCameraID: [UUID: Task<Void, Never>] = [:]
     @ObservationIgnored private var modeSwitchAttemptsByCameraID: [UUID: Int] = [:]
     @ObservationIgnored private var pendingStartConnectionFailuresByCameraID: [UUID: Int] = [:]
+    @ObservationIgnored private var manualPairConnectionFailuresByCameraID: [UUID: Int] = [:]
     @ObservationIgnored private var availabilitySuppressedUntilByCameraID: [UUID: Date] = [:]
     @ObservationIgnored private var autoConnectSuppressedUntilByCameraID: [UUID: Date] = [:]
     @ObservationIgnored private var lastWakeScanRefreshByCameraID: [UUID: Date] = [:]
@@ -49,6 +52,7 @@ final class CameraStore {
     @ObservationIgnored private var ignoreRecordingUntilByCameraID: [UUID: Date] = [:]
     @ObservationIgnored private var pendingStartCameraIDs: Set<UUID> = []
     @ObservationIgnored private var pendingStopCameraIDs: Set<UUID> = []
+    @ObservationIgnored private var pendingManualPairCameraIDs: Set<UUID> = []
     @ObservationIgnored private var isPairingModeActive = false
     @ObservationIgnored private let logger = Logger(subsystem: "com.ds.ActionCamRemote", category: "camera")
 
@@ -212,6 +216,9 @@ final class CameraStore {
 
     func setPairingModeActive(_ isActive: Bool) {
         isPairingModeActive = isActive
+        if !isActive {
+            cancelManualPairRetries()
+        }
     }
 
     func toggleScanning() {
@@ -248,6 +255,14 @@ final class CameraStore {
             return
         }
 
+        if camera.needsGoProPairingMode {
+            let message = "Put the GoPro in pairing mode from the camera UI, then tap Pair again."
+            appendLog("\(camera.name): \(message)")
+            setCameraDiagnostic(message, for: camera)
+            updateCamera(camera.id, state: .discovered, detail: message)
+            return
+        }
+
         if isDemoMode {
             markCameraAsPaired(camera.id)
             updateCamera(camera.id, state: .connected, detail: "Demo connection established.")
@@ -264,6 +279,13 @@ final class CameraStore {
                 )
             }
             return
+        }
+
+        if !camera.isPaired, isPairingModeActive {
+            if !pendingManualPairCameraIDs.contains(camera.id) {
+                manualPairConnectionFailuresByCameraID[camera.id] = 0
+            }
+            pendingManualPairCameraIDs.insert(camera.id)
         }
 
         let lookup = scanner.peripheralLookup(for: camera.id)
@@ -358,8 +380,10 @@ final class CameraStore {
         cancelConnectionTimeout(for: camera.id)
         cancelAvailabilityTimeout(for: camera.id)
         cancelDJIIdleDisconnect(for: camera.id)
+        cancelManualPairRetry(for: camera.id)
         modeSwitchAttemptsByCameraID.removeValue(forKey: camera.id)
         pendingStartConnectionFailuresByCameraID.removeValue(forKey: camera.id)
+        manualPairConnectionFailuresByCameraID.removeValue(forKey: camera.id)
         availabilitySuppressedUntilByCameraID.removeValue(forKey: camera.id)
         lastWakeScanRefreshByCameraID.removeValue(forKey: camera.id)
         lastDJIProbeByCameraID.removeValue(forKey: camera.id)
@@ -368,6 +392,7 @@ final class CameraStore {
         clearStateGuards(for: camera.id)
         pendingStartCameraIDs.remove(camera.id)
         pendingStopCameraIDs.remove(camera.id)
+        pendingManualPairCameraIDs.remove(camera.id)
         if camera.connectionState == .connected || camera.connectionState == .connecting {
             disconnect(camera)
         }
@@ -424,7 +449,7 @@ final class CameraStore {
         cancelWakeRetry(for: camera.id)
         guard camera.connectionState == .connected else {
             queueStopRecording(for: camera, reason: "Camera is not connected.")
-            scheduleReconnect(for: camera.id, attemptsRemaining: 6)
+            scheduleReconnect(for: camera.id, attemptsRemaining: pendingStopReconnectAttempts(for: camera))
             return
         }
 
@@ -528,6 +553,9 @@ private extension CameraStore {
             if cameras[index].capabilities != capabilities {
                 cameras[index].capabilities = capabilities
             }
+            if candidate.brand == .gopro {
+                cameras[index].isPairingAdvertisement = candidate.isPairing
+            }
 
             if let unsupportedReason {
                 if cameras[index].connectionState == .connected || cameras[index].connectionState == .connecting {
@@ -561,16 +589,22 @@ private extension CameraStore {
                 switch cameras[index].connectionState {
                 case .disconnected, .failed, .reconnecting:
                     if isConnectable, !isAvailabilitySuppressed || isPairingModeActive {
-                        cameras[index].connectionState = .discovered
+                        cameras[index].connectionState = candidate.brand == .gopro ? .discovered : .disconnected
                         clearSelectionIfNotConnected(at: index)
                         if cameras[index].isPaired,
                            cameras[index].supportsBatchRecord,
                            !pendingStartCameraIDs.contains(candidate.id),
                            cameras[index].recordingState != .recording {
-                            cameras[index].recordingState = .stopped
+                            cameras[index].recordingState = candidate.brand == .gopro ? .stopped : .unknown
                         }
                     }
                 case .discovered, .connecting, .connected, .unsupported:
+                    if candidate.brand == .dji, cameras[index].connectionState == .discovered {
+                        cameras[index].connectionState = .disconnected
+                        clearSelectionIfNotConnected(at: index)
+                        cameras[index].recordingState = cameras[index].supportsBatchRecord ? .unknown : .unavailable
+                        cameras[index].currentMode = nil
+                    }
                     if !isConnectable, cameras[index].connectionState == .discovered {
                         cameras[index].connectionState = .disconnected
                         clearSelectionIfNotConnected(at: index)
@@ -588,6 +622,7 @@ private extension CameraStore {
                     && canAttemptAutoConnect(to: cameras[index], now: now)
 
                 if candidate.brand == .dji, candidate.isAwake != nil {
+                    applySleepingDJIAdvertisementIfNeeded(for: candidate.id)
                     scheduleDJIIdleDisconnectIfNeeded(for: candidate.id)
                 }
             }
@@ -612,12 +647,13 @@ private extension CameraStore {
                     rssi: candidate.rssi,
                     capabilities: capabilities,
                     connectionState: unsupportedReason.map(CameraConnectionState.unsupported)
-                        ?? (isConnectable ? .discovered : .disconnected),
+                        ?? (candidate.brand == .gopro && isConnectable ? .discovered : .disconnected),
                     recordingState: unsupportedReason == nil && capabilities.contains(.record) ? .unknown : .unavailable,
                     isPaired: false,
                     isSelected: false,
                     lastSeen: Date(),
-                    lastConnectableSeen: isConnectable ? Date() : nil
+                    lastConnectableSeen: isConnectable ? Date() : nil,
+                    isPairingAdvertisement: candidate.brand == .gopro ? candidate.isPairing : nil
                 )
             )
             shouldSort = true
@@ -628,6 +664,7 @@ private extension CameraStore {
         }
 
         if cameras.first(where: { $0.id == candidate.id })?.isSupportedByApp == true,
+           candidate.brand == .gopro,
            isConnectable, !isAvailabilitySuppressed || isPairingModeActive {
             scheduleAvailabilityTimeout(for: candidate.id)
         }
@@ -644,7 +681,7 @@ private extension CameraStore {
             return true
         }
 
-        guard camera.isPaired, camera.isAvailableToConnect else { return false }
+        guard camera.isPaired else { return false }
 
         if let lastAttempt = lastConnectionAttemptByID[camera.id],
            now.timeIntervalSince(lastAttempt) < autoConnectRetryCooldownInterval {
@@ -659,6 +696,7 @@ private extension CameraStore {
         }
 
         if camera.brand == .gopro {
+            guard camera.isAvailableToConnect else { return false }
             return freshAwakeAdvertisement(for: camera.id, now: now) == true
         }
 
@@ -806,6 +844,37 @@ private extension CameraStore {
                         return
                     }
                 } else {
+                    if self.shouldRetryManualPairConnection(for: latest) {
+                        let failures = (self.manualPairConnectionFailuresByCameraID[id] ?? 0) + 1
+                        self.manualPairConnectionFailuresByCameraID[id] = failures
+                        if failures < self.maxManualPairConnectionFailures {
+                            self.lastConnectionAttemptByID[id] = nil
+                            self.setCameraDiagnostic(
+                                "GoPro pairing attempt \(failures)/\(self.maxManualPairConnectionFailures) timed out while iOS was connecting; retrying.",
+                                for: latest
+                            )
+                            self.updateCamera(id, state: .reconnecting, detail: nil)
+                            self.scheduleManualPairRetry(for: id)
+                            self.connectionTimeoutTasksByCameraID[id] = nil
+                            return
+                        }
+
+                        self.pendingManualPairCameraIDs.remove(id)
+                        self.manualPairConnectionFailuresByCameraID.removeValue(forKey: id)
+                        self.appendLog("\(latest.name): GoPro pairing timed out after \(self.maxManualPairConnectionFailures) attempts.")
+                        self.setCameraDiagnostic(
+                            "GoPro BLE pairing timed out. Make sure the camera is not connected to another phone, iPad, or Quik, then tap Pair again.",
+                            for: latest
+                        )
+                        self.updateCamera(
+                            id,
+                            state: .failed("GoPro BLE pairing timed out."),
+                            detail: nil
+                        )
+                        self.connectionTimeoutTasksByCameraID[id] = nil
+                        return
+                    }
+
                     self.appendLog("\(latest.name): connection timed out before the camera became ready.")
                     self.setCameraDiagnostic(
                         "BLE connection timed out before the camera command service was ready. Will retry on a fresh advertisement.",
@@ -828,6 +897,51 @@ private extension CameraStore {
                 self.connectionTimeoutTasksByCameraID[id] = nil
             }
         }
+    }
+
+    func shouldRetryManualPairConnection(for camera: DiscoveredCamera) -> Bool {
+        pendingManualPairCameraIDs.contains(camera.id)
+            && isPairingModeActive
+            && camera.brand == .gopro
+            && !camera.isPaired
+    }
+
+    func scheduleManualPairRetry(for id: UUID) {
+        manualPairRetryTasksByCameraID[id]?.cancel()
+        manualPairRetryTasksByCameraID[id] = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(1.0))
+            guard !Task.isCancelled else { return }
+            await MainActor.run {
+                guard let self else { return }
+                guard self.isPairingModeActive,
+                      let latest = self.cameras.first(where: { $0.id == id }),
+                      self.shouldRetryManualPairConnection(for: latest) else {
+                    self.manualPairRetryTasksByCameraID[id] = nil
+                    return
+                }
+
+                if latest.connectionState != .connected,
+                   latest.connectionState != .connecting {
+                    self.appendLog("\(latest.name): retrying GoPro pairing connection.")
+                    self.connect(latest)
+                }
+                self.manualPairRetryTasksByCameraID[id] = nil
+            }
+        }
+    }
+
+    func cancelManualPairRetry(for id: UUID) {
+        manualPairRetryTasksByCameraID[id]?.cancel()
+        manualPairRetryTasksByCameraID[id] = nil
+    }
+
+    func cancelManualPairRetries() {
+        for task in manualPairRetryTasksByCameraID.values {
+            task.cancel()
+        }
+        manualPairRetryTasksByCameraID.removeAll()
+        pendingManualPairCameraIDs.removeAll()
+        manualPairConnectionFailuresByCameraID.removeAll()
     }
 
     func connectionTimeoutDelay(for id: UUID) -> Duration {
@@ -952,6 +1066,20 @@ private extension CameraStore {
         }
     }
 
+    func applySleepingDJIAdvertisementIfNeeded(for id: UUID) {
+        guard let index = cameras.firstIndex(where: { $0.id == id }) else { return }
+        guard cameras[index].brand == .dji,
+              cameras[index].connectionState == .connected,
+              shouldShowAsAvailableForSleepingDJI(cameras[index]) else {
+            return
+        }
+
+        appendLog("\(cameras[index].name): asleep Bluetooth advertisement seen; showing as Not Connected.")
+        cameras[index].lastConnectableSeen = nil
+        scanner.disconnect(from: id)
+        updateCamera(id, state: .disconnected, detail: nil)
+    }
+
     func cancelDJIIdleDisconnect(for id: UUID) {
         djiIdleDisconnectTasksByCameraID[id]?.cancel()
         djiIdleDisconnectTasksByCameraID[id] = nil
@@ -962,10 +1090,26 @@ private extension CameraStore {
             return true
         }
 
+        if camera.behavior.kind == .djiOsmoNano {
+            return pendingStartCameraIDs.contains(camera.id)
+                || pendingStopCameraIDs.contains(camera.id)
+                || camera.recordingState == .recording
+                || camera.recordingState == .starting
+        }
+
         return pendingStartCameraIDs.contains(camera.id)
             || pendingStopCameraIDs.contains(camera.id)
             || camera.recordingState == .recording
             || camera.recordingState == .starting
+    }
+
+    func shouldShowAsAvailableForSleepingDJI(_ camera: DiscoveredCamera) -> Bool {
+        guard camera.behavior.kind == .djiOsmoNano else { return false }
+        guard awakeAdvertisementByCameraID[camera.id] == false else { return false }
+        return !pendingStartCameraIDs.contains(camera.id)
+            && !pendingStopCameraIDs.contains(camera.id)
+            && camera.recordingState != .recording
+            && camera.recordingState != .starting
     }
 
     func scheduleReconnect(for id: UUID, attemptsRemaining: Int) {
@@ -1018,6 +1162,18 @@ private extension CameraStore {
         }
 
         return 8
+    }
+
+    func pendingStopReconnectAttempts(for camera: DiscoveredCamera) -> Int {
+        if camera.behavior.kind == .djiOsmoNano {
+            return 24
+        }
+
+        if camera.brand == .dji {
+            return 12
+        }
+
+        return 6
     }
 
     func maxPendingStartConnectionFailures(for camera: DiscoveredCamera) -> Int {
@@ -1209,14 +1365,22 @@ private extension CameraStore {
             await MainActor.run {
                 guard let self else { return }
                 guard let latest = self.cameras.first(where: { $0.id == id }) else { return }
-                guard latest.connectionState == .connected, latest.recordingState != .recording else {
+                guard latest.recordingState != .recording else {
                     self.wakeRetryTasksByCameraID[id] = nil
                     return
                 }
 
                 if attemptsRemaining > 0 {
-                    self.appendLog("\(latest.name): retrying wake-and-record.")
-                    self.send(.startRecording, to: [latest])
+                    if latest.connectionState == .connected {
+                        self.appendLog("\(latest.name): retrying wake-and-record.")
+                        self.send(.startRecording, to: [latest])
+                    } else if latest.behavior.assumesRecordingAfterUnconfirmedDJIStart,
+                              latest.recordingState == .starting {
+                        self.appendLog("\(latest.name): waiting for BLE reconnect after wake-and-record.")
+                    } else {
+                        self.wakeRetryTasksByCameraID[id] = nil
+                        return
+                    }
                     self.scheduleWakeRetry(for: latest.id, attemptsRemaining: attemptsRemaining - 1)
                 } else {
                     if latest.recordingState == .starting {
@@ -1343,7 +1507,7 @@ private extension CameraStore {
                     )
                 } else if camera.brand == .dji, command == .stopRecording {
                     queueStopRecording(for: camera, reason: "No active BLE client.")
-                    scheduleReconnect(for: camera.id, attemptsRemaining: 6)
+                    scheduleReconnect(for: camera.id, attemptsRemaining: pendingStopReconnectAttempts(for: camera))
                 }
                 continue
             }
@@ -1376,7 +1540,7 @@ private extension CameraStore {
         guard wasSent else {
             if result.command == .stopRecording {
                 queueStopRecording(for: camera, reason: result.message)
-                scheduleReconnect(for: camera.id, attemptsRemaining: 6)
+                scheduleReconnect(for: camera.id, attemptsRemaining: pendingStopReconnectAttempts(for: camera))
             }
             return
         }
@@ -1595,6 +1759,9 @@ private extension CameraStore {
         case .connected:
             cancelConnectionTimeout(for: id)
             cancelAvailabilityTimeout(for: id)
+            cancelManualPairRetry(for: id)
+            pendingManualPairCameraIDs.remove(id)
+            manualPairConnectionFailuresByCameraID.removeValue(forKey: id)
             cameras[index].isPaired = true
             if cameras[index].supportsBatchRecord, previousState != .connected {
                 if pendingStartCameraIDs.contains(id) {
@@ -1625,7 +1792,12 @@ private extension CameraStore {
             cancelDJIIdleDisconnect(for: id)
             cancelConnectionTimeout(for: id)
             cancelAvailabilityTimeout(for: id)
-            cancelWakeRetry(for: id)
+            if !shouldKeepWakeRetryDuringConnectionChurn(
+                for: cameras[index],
+                previousRecordingState: previousRecordingState
+            ) {
+                cancelWakeRetry(for: id)
+            }
             if pendingStartCameraIDs.contains(id) {
                 cameras[index].recordingState = .starting
                 lastConnectionAttemptByID[id] = nil
@@ -1650,7 +1822,10 @@ private extension CameraStore {
                 if pendingStopCameraIDs.contains(id)
                     || (cameras[index].behavior.preservesActiveDJIRecordingAcrossReconnect
                         && (previousRecordingState == .recording || previousRecordingState == .starting)) {
-                    scheduleReconnect(for: id, attemptsRemaining: 6)
+                    scheduleReconnect(
+                        for: id,
+                        attemptsRemaining: pendingStopReconnectAttempts(for: cameras[index])
+                    )
                 }
             } else {
                 cameras[index].recordingState = cameras[index].supportsBatchRecord ? .unknown : .unavailable
@@ -1660,7 +1835,12 @@ private extension CameraStore {
             cancelDJIIdleDisconnect(for: id)
             cancelConnectionTimeout(for: id)
             cancelAvailabilityTimeout(for: id)
-            cancelWakeRetry(for: id)
+            if !shouldKeepWakeRetryDuringConnectionChurn(
+                for: cameras[index],
+                previousRecordingState: previousRecordingState
+            ) {
+                cancelWakeRetry(for: id)
+            }
             if cameras[index].brand == .gopro,
                previousState == .connected,
                !pendingStartCameraIDs.contains(id),
@@ -1681,7 +1861,10 @@ private extension CameraStore {
                 cameras[index].recordingState = .recording
                 lastConnectionAttemptByID[id] = nil
                 ensureScanning()
-                scheduleReconnect(for: id, attemptsRemaining: 6)
+                scheduleReconnect(
+                    for: id,
+                    attemptsRemaining: pendingStopReconnectAttempts(for: cameras[index])
+                )
             } else {
                 cameras[index].recordingState = cameras[index].supportsBatchRecord ? .unknown : .unavailable
                 cameras[index].currentMode = nil
@@ -1739,14 +1922,26 @@ private extension CameraStore {
                 return .reconnecting
             }
 
-            if let lastConnectableSeen = camera.lastConnectableSeen,
+            if camera.brand == .gopro,
+               let lastConnectableSeen = camera.lastConnectableSeen,
                Date().timeIntervalSince(lastConnectableSeen) <= availabilityFreshnessInterval {
                 return .discovered
             }
             return .disconnected
-        case .discovered, .connecting, .connected, .reconnecting, .unsupported:
+        case .discovered:
+            return camera.brand == .gopro ? .discovered : .disconnected
+        case .connecting, .connected, .reconnecting, .unsupported:
             return state
         }
+    }
+
+    func shouldKeepWakeRetryDuringConnectionChurn(
+        for camera: DiscoveredCamera,
+        previousRecordingState: CameraRecordingState
+    ) -> Bool {
+        camera.brand == .dji
+            && camera.behavior.assumesRecordingAfterUnconfirmedDJIStart
+            && previousRecordingState == .starting
     }
 
     func clearSelectionIfNotConnected(at index: Int) {
@@ -1759,7 +1954,8 @@ private extension CameraStore {
     }
 
     func freshAvailableState(for camera: DiscoveredCamera) -> CameraConnectionState? {
-        guard let lastConnectableSeen = camera.lastConnectableSeen,
+        guard camera.brand == .gopro,
+              let lastConnectableSeen = camera.lastConnectableSeen,
               Date().timeIntervalSince(lastConnectableSeen) <= availabilityFreshnessInterval else {
             return nil
         }

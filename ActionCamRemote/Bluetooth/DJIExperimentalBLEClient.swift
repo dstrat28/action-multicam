@@ -842,7 +842,8 @@ private extension DJIExperimentalBLEClient {
             }
 
             if let shortState = DJIAction6ShortState(payload: statusPayload),
-               cameraBehavior.kind == .djiOsmoAction6 {
+               cameraBehavior.kind == .djiOsmoAction6,
+               cameraBehavior.trustsDJICompactRecordingStatus {
                 onCameraStatus(
                     cameraID,
                     CameraStatusUpdate(

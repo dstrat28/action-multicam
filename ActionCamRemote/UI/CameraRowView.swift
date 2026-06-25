@@ -19,14 +19,14 @@ struct CameraRowView: View {
                 .frame(width: 6)
 
             VStack(alignment: .leading, spacing: 0) {
-                HStack(alignment: .center, spacing: 12) {
+                HStack(alignment: .center, spacing: 8) {
                     Button {
                         store.toggleSelection(for: camera)
                     } label: {
                         Image(systemName: camera.isSelected ? "checkmark.circle.fill" : "circle")
                             .font(.title3)
                             .foregroundStyle(selectionColor)
-                            .frame(width: 34, height: 34)
+                            .frame(width: 30, height: 30)
                     }
                     .buttonStyle(.plain)
                     .disabled(!camera.canSelectForBatch && !camera.isSelected)
@@ -83,7 +83,7 @@ struct CameraRowView: View {
                 .padding(.top, 2)
 
                 if shouldShowMetricsOrActions {
-                    HStack(alignment: .center, spacing: 0) {
+                    HStack(alignment: .top, spacing: 0) {
                         Color.clear
                             .frame(width: leadingContentInset)
 
@@ -125,9 +125,6 @@ struct CameraRowView: View {
     }
 
     private var rowAccent: Color {
-        if camera.recordingState == .recording {
-            return .acrRecord
-        }
         return camera.connectionState.statusColor
     }
 
@@ -136,7 +133,7 @@ struct CameraRowView: View {
     }
 
     private var leadingContentInset: CGFloat {
-        46
+        38
     }
 
     private var shouldShowMetricsOrActions: Bool {
@@ -319,7 +316,6 @@ private struct CameraVideoModeButton: View {
                 Image(systemName: "video")
                 Text("Video")
             }
-            .frame(minWidth: 78)
         }
         .buttonStyle(.bordered)
         .controlSize(.small)
@@ -359,7 +355,6 @@ private struct CameraRecordButton: View {
                 Image(systemName: camera.primaryRecordIcon)
                 Text(camera.primaryRecordTitle)
             }
-            .frame(minWidth: 82)
         }
     }
 

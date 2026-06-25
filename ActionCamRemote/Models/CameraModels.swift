@@ -315,10 +315,10 @@ struct CameraBehaviorProfile: Equatable {
                 kind: .djiOsmoAction6,
                 assumesRecordingAfterUnconfirmedDJIStart: true,
                 preservesActiveDJIRecordingAcrossReconnect: true,
-                trustsDJICompactRecordingStatus: true,
+                trustsDJICompactRecordingStatus: false,
                 trustsDJIFullRecordingStatus: true,
-                trustsDJIRecordingTimerStatus: true,
-                trustsDJIRecordingHints: true,
+                trustsDJIRecordingTimerStatus: false,
+                trustsDJIRecordingHints: false,
                 trustsDJIStoppedStatusToClearActiveRecording: false
             )
         }
@@ -395,6 +395,7 @@ struct DiscoveredCamera: Identifiable, Equatable, Codable {
     var isSelected: Bool
     var lastSeen: Date
     var lastConnectableSeen: Date? = nil
+    var isPairingAdvertisement: Bool? = nil
 
     var isSupportedByApp: Bool {
         unsupportedReason == nil
@@ -450,7 +451,13 @@ struct DiscoveredCamera: Identifiable, Equatable, Codable {
     }
 
     var isAvailableToConnect: Bool {
-        connectionState == .discovered
+        brand == .gopro && connectionState == .discovered
+    }
+
+    var needsGoProPairingMode: Bool {
+        brand == .gopro
+            && !isPaired
+            && isPairingAdvertisement == false
     }
 
     var isControllable: Bool {
@@ -474,7 +481,11 @@ struct DiscoveredCamera: Identifiable, Equatable, Codable {
     }
 
     var displayConnectionLabel: String {
-        isSupportedByApp ? connectionState.label : "Unsupported"
+        guard isSupportedByApp else { return "Unsupported" }
+        if brand == .dji, connectionState == .discovered {
+            return CameraConnectionState.disconnected.label
+        }
+        return connectionState.label
     }
 
     var canSelectForBatch: Bool {

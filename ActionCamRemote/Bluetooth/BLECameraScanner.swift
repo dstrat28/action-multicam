@@ -9,6 +9,7 @@ struct DiscoveredCameraCandidate {
     var rssi: Int
     var capabilities: Set<CameraCapability>
     var isAwake: Bool? = nil
+    var isPairing: Bool? = nil
     var isConnectable: Bool? = nil
 }
 
@@ -241,6 +242,7 @@ private extension BLECameraScanner {
                 rssi: rssi,
                 capabilities: [.record, .mode, .settings, .status, .keepAlive],
                 isAwake: inferGoProAwakeState(from: advertisementData, advertisedServices: services),
+                isPairing: inferGoProPairingState(from: advertisementData),
                 isConnectable: inferConnectableState(from: advertisementData)
             )
         }
@@ -295,8 +297,9 @@ private extension BLECameraScanner {
             .map { $0 ? "yes" : "no" } ?? "unknown"
 
         let awake = candidate.isAwake.map { $0 ? "yes" : "no" } ?? "unknown"
+        let pairing = candidate.isPairing.map { $0 ? "yes" : "no" } ?? "unknown"
         onEvent?(.log(
-            "\(candidate.name): \(candidate.brand.rawValue) ad fingerprint rssi \(candidate.rssi), awake \(awake), connectable \(isConnectable), localName \(localName ?? "-"), peripheralName \(peripheral.name ?? "-"), services [\(services.isEmpty ? "-" : services)], overflow [\(overflowServices.isEmpty ? "-" : overflowServices)], tx \(txPower), mfg \(manufacturerData), serviceData \(serviceData)"
+            "\(candidate.name): \(candidate.brand.rawValue) ad fingerprint rssi \(candidate.rssi), awake \(awake), pairing \(pairing), connectable \(isConnectable), localName \(localName ?? "-"), peripheralName \(peripheral.name ?? "-"), services [\(services.isEmpty ? "-" : services)], overflow [\(overflowServices.isEmpty ? "-" : overflowServices)], tx \(txPower), mfg \(manufacturerData), serviceData \(serviceData)"
         ))
     }
 
@@ -343,6 +346,7 @@ private extension BLECameraScanner {
             rssi: rssi,
             capabilities: known.capabilities,
             isAwake: inferAwakeState(for: known.brand, cameraName: name, from: advertisementData, advertisedServices: services),
+            isPairing: known.brand == .gopro ? inferGoProPairingState(from: advertisementData) : nil,
             isConnectable: inferConnectableState(from: advertisementData)
         )
     }
@@ -364,11 +368,7 @@ private extension BLECameraScanner {
     }
 
     func connectOptions(enableAutoReconnect: Bool) -> [String: Any] {
-        var options: [String: Any] = [
-            CBConnectPeripheralOptionNotifyOnConnectionKey: true,
-            CBConnectPeripheralOptionNotifyOnDisconnectionKey: true,
-            CBConnectPeripheralOptionNotifyOnNotificationKey: true
-        ]
+        var options: [String: Any] = [:]
 
         if enableAutoReconnect {
             options[CBConnectPeripheralOptionEnableAutoReconnect] = true
@@ -437,6 +437,16 @@ private extension BLECameraScanner {
 
         let statusByte = manufacturerData[manufacturerData.index(manufacturerData.startIndex, offsetBy: 3)]
         return (statusByte & 0x01) == 0x01
+    }
+
+    func inferGoProPairingState(from advertisementData: [String: Any]) -> Bool? {
+        guard let manufacturerData = goProManufacturerData(from: advertisementData),
+              manufacturerData.count >= 4 else {
+            return nil
+        }
+
+        let statusByte = manufacturerData[manufacturerData.index(manufacturerData.startIndex, offsetBy: 3)]
+        return (statusByte & 0x04) == 0x04
     }
 
     func goProManufacturerData(from advertisementData: [String: Any]) -> Data? {

@@ -318,13 +318,12 @@ private struct PairingCameraRow: View {
                         .buttonStyle(.borderedProminent)
                         .controlSize(.small)
                         .fixedSize()
-                        .disabled(camera.connectionState == .connecting)
+                        .disabled(camera.connectionState == .connecting || camera.needsGoProPairingMode)
                     }
                 }
             }
 
-            if camera.unsupportedReason == nil,
-               let detail = camera.connectionState.detail {
+            if let detail = pairingDetail {
                 Text(detail)
                     .font(.caption)
                     .foregroundStyle(Color.acrMutedText)
@@ -334,7 +333,19 @@ private struct PairingCameraRow: View {
     }
 
     private var pairButtonTitle: String {
-        camera.connectionState == .connecting ? "Pairing" : "Pair"
+        if camera.needsGoProPairingMode {
+            return "Pairing Mode"
+        }
+        return camera.connectionState == .connecting ? "Pairing" : "Pair"
+    }
+
+    private var pairingDetail: String? {
+        if camera.needsGoProPairingMode {
+            return "Put the GoPro in pairing mode from the camera UI, then tap Pair again."
+        }
+
+        guard camera.unsupportedReason == nil else { return nil }
+        return camera.connectionState.detail
     }
 }
 
