@@ -19,6 +19,7 @@ final class DJIExperimentalBLEClient: NSObject, BLECameraDeviceClient {
     private var lastCameraStateSummaryLogDate = Date.distantPast
     private var lastVideoRecordTime: UInt32?
     private var lastAction6StatusDiagnosticLabel: String?
+    private var lastUnhandledDumlPacketLabel: String?
     private var compactStoppedProtectionUntil = Date.distantPast
     private let onStatus: (UUID, CameraConnectionState, String?) -> Void
     private let onCameraStatus: (UUID, CameraStatusUpdate) -> Void
@@ -171,6 +172,7 @@ extension DJIExperimentalBLEClient {
         applyDumlRecordingHint(from: value)
         logDumlAck(from: value)
         logDumlStatusPush(from: value)
+        logUnhandledDumlPacket(from: value)
         if shouldLogRawNotification(value) {
             onLog("\(cameraName): \(characteristic.uuid.uuidString) \(value.hexString)")
         }
@@ -914,6 +916,7 @@ private extension DJIExperimentalBLEClient {
 
         return CameraStatusUpdate(
             recordingState: recordingState,
+            telemetry: state.telemetry,
             canClearActiveRecording: canClearActiveRecording(with: recordingState)
         )
     }
@@ -1001,6 +1004,23 @@ private extension DJIExperimentalBLEClient {
                 shouldClearCurrentMode: recordingState == .recording
             )
         )
+    }
+
+    func logUnhandledDumlPacket(from value: Data) {
+        guard let packet = DJIDUMLIncomingPacket(data: value),
+              !packet.isResponse,
+              !packet.isCameraStatePush,
+              packet.recordingStateHint == nil,
+              packet.sender == dumlRouting.cameraAddress else {
+            return
+        }
+
+        let payloadLabel = packet.payload.isEmpty ? "empty payload" : "payload \(packet.payload.hexString)"
+        let label = "cmdset 0x\(packet.commandSet.hexByte) cmd 0x\(packet.commandID.hexByte), \(payloadLabel), flags 0x\(packet.flags.hexByte)"
+        guard label != lastUnhandledDumlPacketLabel else { return }
+
+        lastUnhandledDumlPacketLabel = label
+        onLog("\(cameraName): DJI unhandled camera packet \(label).")
     }
 
     static func cameraStateModeLabel(_ value: UInt8) -> String {
@@ -1272,6 +1292,25 @@ private struct DJICameraStateSummary {
             let battery = batteryPercent.map(String.init) ?? "unknown"
             return "compact mode byte \(DJIExperimentalBLEClient.cameraStateModeLabel(mode)), recordBits \(recordBits), videoRecordTime \(videoRecordTime)s, remainingTime \(remainedTime)s, battery \(battery), flags 0x\(flags.hexWord)"
         }
+    }
+
+    var telemetry: CameraTelemetry? {
+        var telemetry = CameraTelemetry()
+
+        if let batteryPercent, batteryPercent <= 100 {
+            telemetry.batteryPercent = Int(batteryPercent)
+        }
+
+        if sdCardTotalSize > 0 {
+            telemetry.storageTotalMB = sdCardTotalSize
+        }
+
+        if sdCardFreeSize > 0 {
+            telemetry.storageFreeMB = sdCardFreeSize
+        }
+
+        telemetry.lastUpdated = Date()
+        return telemetry.isEmpty ? nil : telemetry
     }
 }
 

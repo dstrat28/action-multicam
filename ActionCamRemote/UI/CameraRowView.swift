@@ -2,6 +2,7 @@ import SwiftUI
 
 struct CameraRowView: View {
     @Environment(CameraStore.self) private var store
+    @State private var isShowingTelemetryDetails = false
     var camera: DiscoveredCamera
     var isShowingDiagnostics: Bool
 
@@ -28,6 +29,13 @@ struct CameraRowView: View {
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .lineLimit(2)
+
+                if let telemetry {
+                    CameraTelemetryDisclosure(
+                        telemetry: telemetry,
+                        isExpanded: $isShowingTelemetryDetails
+                    )
+                }
 
                 if let unsupportedReason = camera.unsupportedReason {
                     Text(unsupportedReason)
@@ -103,8 +111,55 @@ struct CameraRowView: View {
         return parts.joined(separator: " · ")
     }
 
+    private var telemetry: CameraTelemetry? {
+        guard camera.isConnected else { return nil }
+        return camera.telemetry
+    }
+
     private var shouldShowDiagnosticDetail: Bool {
         camera.isKnownAction6 || camera.connectionState != .connected
+    }
+}
+
+private struct CameraTelemetryDisclosure: View {
+    var telemetry: CameraTelemetry
+    @Binding var isExpanded: Bool
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            if let primarySummary = telemetry.primarySummaryLine {
+                Text(primarySummary)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+
+            if let detailSummary = telemetry.detailSummaryLine {
+                Button {
+                    withAnimation(.snappy(duration: 0.18)) {
+                        isExpanded.toggle()
+                    }
+                } label: {
+                    HStack(spacing: 4) {
+                        Text("Details")
+                        Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
+                            .font(.caption2.weight(.semibold))
+                    }
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(isExpanded ? "Hide camera details" : "Show camera details")
+
+                if isExpanded {
+                    Text(detailSummary)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(3)
+                        .transition(.opacity.combined(with: .move(edge: .top)))
+                }
+            }
+        }
     }
 }
 

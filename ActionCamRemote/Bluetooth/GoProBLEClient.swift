@@ -23,12 +23,15 @@ final class GoProBLEClient: NSObject, BLECameraDeviceClient {
     private var settingsCharacteristic: CBCharacteristic?
     private var queryCharacteristic: CBCharacteristic?
     private var queryResponseCharacteristic: CBCharacteristic?
+    private var commandResponseReassembler = GoProPacketReassembler()
+    private var queryResponseReassembler = GoProPacketReassembler()
     private var keepAliveTimer: Timer?
     private var statusPollTimer: Timer?
     private var statusRefreshTimer: Timer?
     private var statusFallbackTimer: Timer?
     private var statusFallbackGeneration = 0
     private var isRegisteredForStatusUpdates = false
+    private var isRegisteredForSettingUpdates = false
     private var hasRequestedHardwareInfo = false
     private var hasClaimedExternalControl = false
     private let onStatus: (UUID, CameraConnectionState, String?) -> Void
@@ -75,7 +78,10 @@ final class GoProBLEClient: NSObject, BLECameraDeviceClient {
         settingsCharacteristic = nil
         queryCharacteristic = nil
         queryResponseCharacteristic = nil
+        commandResponseReassembler.reset()
+        queryResponseReassembler.reset()
         isRegisteredForStatusUpdates = false
+        isRegisteredForSettingUpdates = false
         hasRequestedHardwareInfo = false
         hasClaimedExternalControl = false
     }
@@ -107,6 +113,7 @@ final class GoProBLEClient: NSObject, BLECameraDeviceClient {
         case let .setMode(mode):
             let result = writeCommand(.loadPresetGroup(mode), to: peripheral, label: command)
             scheduleStatusRefresh()
+            scheduleSettingRefresh()
             return result
         case .cycleMode:
             let result = writeCommand(.pressModeButton, to: peripheral, label: command)
@@ -193,7 +200,9 @@ extension GoProBLEClient {
             claimExternalControlIfPossible(reason: "connection")
         case GoProBLEUUID.queryResponse:
             registerForStatusUpdates()
+            registerForSettingUpdates()
             requestStatusValues(fallbackRecordingState: .stopped)
+            requestSettingValues()
             startStatusPolling()
         default:
             break
@@ -222,9 +231,9 @@ extension GoProBLEClient {
 
         guard let value = characteristic.value else { return }
         if characteristic.uuid == GoProBLEUUID.commandResponse {
-            handleCommandResponse(value)
+            commandResponseReassembler.append(value).forEach(handleCommandResponse)
         } else if characteristic.uuid == GoProBLEUUID.queryResponse {
-            handleQueryResponse(value)
+            queryResponseReassembler.append(value).forEach(handleQueryResponse)
         }
         onLog("\(cameraName): \(characteristic.uuid.uuidString) \(value.hexString)")
     }
@@ -261,18 +270,51 @@ private extension GoProBLEClient {
     }
 
     enum GoProQuery {
+        static let getSettingValues: UInt8 = 0x12
         static let getStatusValues: UInt8 = 0x13
+        static let registerSettingUpdates: UInt8 = 0x52
         static let registerStatusUpdates: UInt8 = 0x53
+        static let settingUpdateNotification: UInt8 = 0x92
         static let statusUpdateNotification: UInt8 = 0x93
 
+        static let batteryBarsStatusID: UInt8 = 0x02
         static let encodingStatusID: UInt8 = 0x0A
+        static let remainingVideoTimeStatusID: UInt8 = 0x23
+        static let remainingPhotosStatusID: UInt8 = 0x22
+        static let sdCardRemainingStatusID: UInt8 = 0x36
+        static let batteryPercentStatusID: UInt8 = 0x46
         static let flatModeStatusID: UInt8 = 0x59
         static let presetGroupStatusID: UInt8 = 0x60
+        static let sdCardCapacityStatusID: UInt8 = 0x75
+
+        static let videoResolutionSettingID: UInt8 = 0x02
+        static let frameRateSettingID: UInt8 = 0x03
+        static let videoAspectRatioSettingID: UInt8 = 0x6C
+        static let videoLensSettingID: UInt8 = 0x79
+        static let hypersmoothSettingID: UInt8 = 0x87
+        static let videoFramingSettingID: UInt8 = 0xE8
+        static let modernFrameRateSettingID: UInt8 = 0xEA
 
         static let statusIDs: [UInt8] = [
+            batteryBarsStatusID,
             encodingStatusID,
+            remainingPhotosStatusID,
+            remainingVideoTimeStatusID,
+            sdCardRemainingStatusID,
+            batteryPercentStatusID,
             flatModeStatusID,
-            presetGroupStatusID
+            presetGroupStatusID,
+            sdCardCapacityStatusID
+        ]
+
+        static let settingIDs: [UInt8] = [
+            videoResolutionSettingID,
+            frameRateSettingID,
+            videoAspectRatioSettingID,
+            videoLensSettingID,
+            hypersmoothSettingID,
+            videoFramingSettingID,
+            modernFrameRateSettingID
         ]
     }
 
@@ -284,7 +326,9 @@ private extension GoProBLEClient {
 
         if queryResponseCharacteristic?.isNotifying == true {
             registerForStatusUpdates()
+            registerForSettingUpdates()
             requestStatusValues(fallbackRecordingState: .stopped)
+            requestSettingValues()
             startStatusPolling()
         }
     }
@@ -381,6 +425,18 @@ private extension GoProBLEClient {
         onLog("\(cameraName): GoPro register status updates \(payload.hexString)")
     }
 
+    func registerForSettingUpdates() {
+        guard let peripheral, let queryCharacteristic else { return }
+        guard !isRegisteredForSettingUpdates else { return }
+        let payload = GoProPacket.queryPayload(
+            id: GoProQuery.registerSettingUpdates,
+            elements: GoProQuery.settingIDs
+        )
+        peripheral.writeValue(GoProPacket.packetize(payload), for: queryCharacteristic, type: .withResponse)
+        isRegisteredForSettingUpdates = true
+        onLog("\(cameraName): GoPro register setting updates \(payload.hexString)")
+    }
+
     func requestStatusValues(
         fallbackRecordingState: CameraRecordingState? = nil,
         shouldLog: Bool = true
@@ -397,10 +453,28 @@ private extension GoProBLEClient {
         scheduleStatusFallback(fallbackRecordingState)
     }
 
+    func requestSettingValues(shouldLog: Bool = true) {
+        guard let peripheral, let queryCharacteristic else { return }
+        let payload = GoProPacket.queryPayload(
+            id: GoProQuery.getSettingValues,
+            elements: GoProQuery.settingIDs
+        )
+        peripheral.writeValue(GoProPacket.packetize(payload), for: queryCharacteristic, type: .withResponse)
+        if shouldLog {
+            onLog("\(cameraName): GoPro request setting values \(payload.hexString)")
+        }
+    }
+
     func scheduleStatusRefresh(fallbackRecordingState: CameraRecordingState? = nil) {
         statusRefreshTimer?.invalidate()
         statusRefreshTimer = Timer.scheduledTimer(withTimeInterval: 0.7, repeats: false) { [weak self] _ in
             self?.requestStatusValues(fallbackRecordingState: fallbackRecordingState)
+        }
+    }
+
+    func scheduleSettingRefresh() {
+        Timer.scheduledTimer(withTimeInterval: 0.9, repeats: false) { [weak self] _ in
+            self?.requestSettingValues()
         }
     }
 
@@ -422,8 +496,7 @@ private extension GoProBLEClient {
         }
     }
 
-    func handleCommandResponse(_ value: Data) {
-        guard let payload = GoProPacket.depacketize(value) else { return }
+    func handleCommandResponse(_ payload: Data) {
         logCommandResponsePayload(payload)
 
         guard let model = payload.goProModel else { return }
@@ -441,37 +514,130 @@ private extension GoProBLEClient {
         )
     }
 
-    func handleQueryResponse(_ value: Data) {
-        guard let payload = GoProPacket.depacketize(value), let responseID = payload.first else { return }
+    func handleQueryResponse(_ payload: Data) {
+        guard let responseID = payload.first else { return }
         guard responseID == GoProQuery.getStatusValues
             || responseID == GoProQuery.registerStatusUpdates
-            || responseID == GoProQuery.statusUpdateNotification else {
+            || responseID == GoProQuery.statusUpdateNotification
+            || responseID == GoProQuery.getSettingValues
+            || responseID == GoProQuery.registerSettingUpdates
+            || responseID == GoProQuery.settingUpdateNotification else {
             return
         }
 
-        let values = GoProPacket.parseTLVValuesScanning(
-            in: payload.dropFirst(),
-            keeping: Set(GoProQuery.statusIDs)
-        )
         var update = CameraStatusUpdate()
 
-        if let encoding = values[GoProQuery.encodingStatusID]?.first {
-            update.recordingState = encoding == 0 ? .stopped : .recording
-            statusFallbackGeneration += 1
-            statusFallbackTimer?.invalidate()
-            statusFallbackTimer = nil
+        if responseID == GoProQuery.getStatusValues
+            || responseID == GoProQuery.registerStatusUpdates
+            || responseID == GoProQuery.statusUpdateNotification {
+            let values = GoProPacket.parseTLVValuesScanning(
+                in: payload.dropFirst(),
+                keeping: Set(GoProQuery.statusIDs)
+            )
+
+            if let encoding = values[GoProQuery.encodingStatusID]?.first {
+                update.recordingState = encoding == 0 ? .stopped : .recording
+                statusFallbackGeneration += 1
+                statusFallbackTimer?.invalidate()
+                statusFallbackTimer = nil
+            }
+
+            if let flatMode = values[GoProQuery.flatModeStatusID],
+               let mode = CaptureMode(goProFlatModeData: flatMode) {
+                update.currentMode = mode
+            } else if let presetGroup = values[GoProQuery.presetGroupStatusID],
+               let mode = CaptureMode(goProPresetGroupData: presetGroup) {
+                update.currentMode = mode
+            }
+
+            let telemetry = goProTelemetry(fromStatusValues: values)
+            if !telemetry.isEmpty {
+                update.telemetry = telemetry
+            }
         }
 
-        if let flatMode = values[GoProQuery.flatModeStatusID],
-           let mode = CaptureMode(goProFlatModeData: flatMode) {
-            update.currentMode = mode
-        } else if let presetGroup = values[GoProQuery.presetGroupStatusID],
-           let mode = CaptureMode(goProPresetGroupData: presetGroup) {
-            update.currentMode = mode
+        if responseID == GoProQuery.getSettingValues
+            || responseID == GoProQuery.registerSettingUpdates
+            || responseID == GoProQuery.settingUpdateNotification {
+            let values = GoProPacket.parseTLVValuesScanning(
+                in: payload.dropFirst(),
+                keeping: Set(GoProQuery.settingIDs)
+            )
+            let telemetry = goProTelemetry(fromSettingValues: values)
+            if !telemetry.isEmpty {
+                update.telemetry = telemetry
+            }
         }
 
-        guard update.recordingState != nil || update.currentMode != nil else { return }
+        guard update.recordingState != nil || update.currentMode != nil || update.telemetry != nil else { return }
         onCameraStatus(cameraID, update)
+    }
+
+    func goProTelemetry(fromStatusValues values: [UInt8: Data]) -> CameraTelemetry {
+        var telemetry = CameraTelemetry()
+
+        if let batteryPercent = values[GoProQuery.batteryPercentStatusID]?.boundedInt(max: 100) {
+            telemetry.batteryPercent = batteryPercent
+        }
+
+        if let bars = values[GoProQuery.batteryBarsStatusID]?.boundedInt(max: 4) {
+            telemetry.batteryBars = bars
+        }
+
+        if let remainingVideoSeconds = values[GoProQuery.remainingVideoTimeStatusID]?.unsignedInteger,
+           remainingVideoSeconds > 0 {
+            telemetry.remainingVideoSeconds = remainingVideoSeconds
+        }
+
+        if let remainingPhotos = values[GoProQuery.remainingPhotosStatusID]?.unsignedInteger {
+            telemetry.remainingPhotos = remainingPhotos
+        }
+
+        if let remaining = values[GoProQuery.sdCardRemainingStatusID]?.storageMegabytes, remaining > 0 {
+            telemetry.storageFreeMB = remaining
+        }
+
+        if let capacity = values[GoProQuery.sdCardCapacityStatusID]?.storageMegabytes, capacity > 0 {
+            telemetry.storageTotalMB = capacity
+        }
+
+        telemetry.lastUpdated = Date()
+        return telemetry
+    }
+
+    func goProTelemetry(fromSettingValues values: [UInt8: Data]) -> CameraTelemetry {
+        var telemetry = CameraTelemetry()
+
+        if let value = values[GoProQuery.videoResolutionSettingID]?.first {
+            telemetry.videoResolution = GoProSettingLabels.videoResolution(value)
+        }
+
+        if let value = values[GoProQuery.frameRateSettingID]?.first {
+            telemetry.frameRate = GoProSettingLabels.frameRate(value)
+        }
+
+        if let value = values[GoProQuery.modernFrameRateSettingID]?.first {
+            telemetry.frameRate = GoProSettingLabels.modernFrameRate(value)
+        }
+
+        if let value = values[GoProQuery.videoAspectRatioSettingID]?.first {
+            telemetry.framing = GoProSettingLabels.aspectRatio(value)
+        }
+
+        if let value = values[GoProQuery.videoFramingSettingID]?.first {
+            telemetry.framing = GoProSettingLabels.videoFraming(value)
+        }
+
+        if let value = values[GoProQuery.videoLensSettingID]?.first {
+            telemetry.lens = GoProSettingLabels.lens(value)
+        }
+
+        if let value = values[GoProQuery.hypersmoothSettingID]?.first {
+            telemetry.hypersmooth = GoProSettingLabels.hypersmooth(value)
+        }
+
+        telemetry.lastUpdated = Date()
+        return telemetry
     }
 }
 
@@ -524,6 +690,10 @@ enum GoProPacket {
 
     static func depacketize(_ packet: Data) -> Data? {
         guard let first = packet.first else { return nil }
+
+        if (first & 0x80) == 0x80 {
+            return nil
+        }
 
         if (first & 0xE0) == 0x20 {
             guard packet.count >= 2 else { return nil }
@@ -590,9 +760,138 @@ enum GoProPacket {
     }
 }
 
+private struct GoProPacketReassembler {
+    private var pendingMessage = Data()
+    private var expectedLength: Int?
+    private var expectedContinuationCounter: UInt8 = 0
+
+    mutating func append(_ packet: Data) -> [Data] {
+        guard let first = packet.first else { return [] }
+
+        if (first & 0x80) == 0x80 {
+            return appendContinuationPacket(packet, header: first)
+        }
+
+        return appendStartPacket(packet, header: first)
+    }
+
+    mutating func reset() {
+        pendingMessage.removeAll()
+        expectedLength = nil
+        expectedContinuationCounter = 0
+    }
+
+    private mutating func appendStartPacket(_ packet: Data, header: UInt8) -> [Data] {
+        let parsed = GoProPacketHeader(startPacket: packet, header: header)
+        guard let parsed else {
+            reset()
+            return []
+        }
+
+        expectedLength = parsed.messageLength
+        expectedContinuationCounter = 0
+        pendingMessage = Data(packet.dropFirst(parsed.headerLength))
+
+        return completeMessagesIfReady()
+    }
+
+    private mutating func appendContinuationPacket(_ packet: Data, header: UInt8) -> [Data] {
+        guard expectedLength != nil else { return [] }
+
+        let counter = header & 0x0F
+        if counter != expectedContinuationCounter {
+            reset()
+            return []
+        }
+
+        expectedContinuationCounter = (expectedContinuationCounter + 1) & 0x0F
+        pendingMessage.append(contentsOf: packet.dropFirst())
+        return completeMessagesIfReady()
+    }
+
+    private mutating func completeMessagesIfReady() -> [Data] {
+        guard let expectedLength else { return [] }
+        guard pendingMessage.count >= expectedLength else { return [] }
+
+        let message = Data(pendingMessage.prefix(expectedLength))
+        reset()
+        return [message]
+    }
+}
+
+private struct GoProPacketHeader {
+    var messageLength: Int
+    var headerLength: Int
+
+    init?(startPacket: Data, header: UInt8) {
+        switch header & 0x60 {
+        case 0x00:
+            self.messageLength = Int(header & 0x1F)
+            self.headerLength = 1
+        case 0x20:
+            guard startPacket.count >= 2 else { return nil }
+            let lowByte = startPacket[startPacket.index(after: startPacket.startIndex)]
+            self.messageLength = (Int(header & 0x1F) << 8) | Int(lowByte)
+            self.headerLength = 2
+        case 0x40:
+            guard startPacket.count >= 3 else { return nil }
+            let highByte = startPacket[startPacket.index(after: startPacket.startIndex)]
+            let lowByte = startPacket[startPacket.index(startPacket.startIndex, offsetBy: 2)]
+            self.messageLength = (Int(highByte) << 8) | Int(lowByte)
+            self.headerLength = 3
+        default:
+            return nil
+        }
+    }
+}
+
 private extension Data {
     var hexString: String {
         map { String(format: "%02X", $0) }.joined(separator: " ")
+    }
+
+    var unsignedInteger: UInt32? {
+        if count == 1, let first {
+            return UInt32(first)
+        }
+
+        if count == 2 {
+            let bytes = Array(self)
+            return UInt32(bytes[0]) << 8 | UInt32(bytes[1])
+        }
+
+        if count >= 4 {
+            let bytes = Array(prefix(4))
+            return UInt32(bytes[0]) << 24
+                | UInt32(bytes[1]) << 16
+                | UInt32(bytes[2]) << 8
+                | UInt32(bytes[3])
+        }
+
+        return nil
+    }
+
+    func boundedInt(max: UInt32) -> Int? {
+        guard let unsignedInteger, unsignedInteger <= max else { return nil }
+        return Int(unsignedInteger)
+    }
+
+    var storageMegabytes: UInt32? {
+        let value: UInt64
+        if count >= 8 {
+            value = prefix(8).reduce(UInt64(0)) { ($0 << 8) | UInt64($1) }
+        } else if let unsignedInteger {
+            value = UInt64(unsignedInteger)
+        } else {
+            return nil
+        }
+
+        // Recent GoPro storage statuses are reported in KiB.
+        if value >= 1024 {
+            return UInt32(Swift.min(value / 1024, UInt64(UInt32.max)))
+        }
+
+        return UInt32(value)
     }
 
     var goProModel: CameraModel? {
@@ -638,6 +937,217 @@ private extension Data {
             )
         }
         return values
+    }
+}
+
+private enum GoProSettingLabels {
+    static func videoResolution(_ value: UInt8) -> String {
+        switch value {
+        case 1:
+            "4K"
+        case 4:
+            "2.7K"
+        case 6:
+            "2.7K 4:3"
+        case 7:
+            "1440"
+        case 9:
+            "1080"
+        case 12:
+            "720"
+        case 18:
+            "4K 4:3"
+        case 21:
+            "5.6K"
+        case 24:
+            "5K"
+        case 25:
+            "5K 4:3"
+        case 26:
+            "5.3K 8:7"
+        case 27:
+            "5.3K 4:3"
+        case 28:
+            "4K 8:7"
+        case 31:
+            "8K"
+        case 35:
+            "5.3K 21:9"
+        case 36:
+            "4K 21:9"
+        case 37:
+            "4K 1:1"
+        case 38:
+            "900"
+        case 39:
+            "4K SPH"
+        case 100:
+            "5.3K"
+        case 107:
+            "5.3K 8:7"
+        case 108:
+            "4K 8:7"
+        case 109:
+            "4K 9:16"
+        case 110:
+            "1080 9:16"
+        case 111:
+            "2.7K 4:3"
+        case 112:
+            "4K 4:3"
+        case 113:
+            "5.3K 4:3"
+        default:
+            "Res \(Int(value))"
+        }
+    }
+
+    static func frameRate(_ value: UInt8) -> String {
+        switch value {
+        case 0:
+            "240fps"
+        case 1:
+            "120fps"
+        case 2:
+            "100fps"
+        case 3:
+            "90fps"
+        case 5:
+            "60fps"
+        case 6:
+            "50fps"
+        case 8:
+            "30fps"
+        case 9:
+            "25fps"
+        case 10:
+            "24fps"
+        case 13:
+            "200fps"
+        case 15:
+            "400fps"
+        case 16:
+            "360fps"
+        case 17:
+            "300fps"
+        default:
+            "FPS \(Int(value))"
+        }
+    }
+
+    static func modernFrameRate(_ value: UInt8) -> String {
+        switch value {
+        case 1:
+            "24fps"
+        case 2:
+            "25fps"
+        case 3:
+            "30fps"
+        case 4:
+            "50fps"
+        case 5:
+            "60fps"
+        case 6:
+            "100fps"
+        case 7:
+            "120fps"
+        case 8:
+            "200fps"
+        case 9:
+            "240fps"
+        default:
+            frameRate(value)
+        }
+    }
+
+    static func aspectRatio(_ value: UInt8) -> String {
+        switch value {
+        case 0:
+            "4:3"
+        case 1:
+            "16:9"
+        case 3:
+            "8:7"
+        case 4:
+            "9:16"
+        case 5:
+            "21:9"
+        case 6:
+            "1:1"
+        default:
+            "Aspect \(Int(value))"
+        }
+    }
+
+    static func videoFraming(_ value: UInt8) -> String {
+        switch value {
+        case 0:
+            "4:3"
+        case 1:
+            "16:9"
+        case 3:
+            "8:7"
+        case 4:
+            "9:16"
+        case 5:
+            "21:9"
+        case 6:
+            "1:1"
+        default:
+            "Frame \(Int(value))"
+        }
+    }
+
+    static func lens(_ value: UInt8) -> String {
+        switch value {
+        case 0:
+            "Wide"
+        case 2:
+            "Narrow"
+        case 3:
+            "SuperView"
+        case 4:
+            "Linear"
+        case 7:
+            "Max SuperView"
+        case 8:
+            "Linear+HL"
+        case 9:
+            "HyperView"
+        case 10:
+            "Linear+Lock"
+        case 11:
+            "Max HyperView"
+        case 12:
+            "Ultra SuperView"
+        case 13:
+            "Ultra Wide"
+        case 14:
+            "Ultra Linear"
+        case 104:
+            "Ultra HyperView"
+        default:
+            "Lens \(Int(value))"
+        }
+    }
+
+    static func hypersmooth(_ value: UInt8) -> String {
+        switch value {
+        case 0:
+            "Off"
+        case 1:
+            "Low"
+        case 2:
+            "High"
+        case 3:
+            "Boost"
+        case 4:
+            "AutoBoost"
+        case 100:
+            "Standard"
+        default:
+            "\(Int(value))"
+        }
     }
 }
 

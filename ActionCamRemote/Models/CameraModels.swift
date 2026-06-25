@@ -89,6 +89,182 @@ enum CameraRecordingState: String, Identifiable, Codable {
     var id: String { rawValue }
 }
 
+struct CameraTelemetry: Equatable, Codable {
+    var batteryPercent: Int? = nil
+    var batteryBars: Int? = nil
+    var storageState: String? = nil
+    var remainingVideoSeconds: UInt32? = nil
+    var remainingPhotos: UInt32? = nil
+    var sdCardCapacityMB: UInt32? = nil
+    var storageFreeMB: UInt32? = nil
+    var storageTotalMB: UInt32? = nil
+    var videoResolution: String? = nil
+    var frameRate: String? = nil
+    var framing: String? = nil
+    var lens: String? = nil
+    var hypersmooth: String? = nil
+    var lastUpdated: Date? = nil
+
+    var isEmpty: Bool {
+        batteryPercent == nil
+            && batteryBars == nil
+            && storageState == nil
+            && remainingVideoSeconds == nil
+            && remainingPhotos == nil
+            && sdCardCapacityMB == nil
+            && storageFreeMB == nil
+            && storageTotalMB == nil
+            && videoResolution == nil
+            && frameRate == nil
+            && framing == nil
+            && lens == nil
+            && hypersmooth == nil
+    }
+
+    var primarySummaryItems: [String] {
+        var items: [String] = []
+
+        if let batteryPercent {
+            items.append("Battery \(batteryPercent)%")
+        } else if let batteryBars {
+            items.append("Battery \(batteryBars)/4")
+        }
+
+        if let remainingVideoSeconds {
+            items.append("\(Self.durationLabel(seconds: remainingVideoSeconds)) left")
+        }
+
+        return items
+    }
+
+    var detailSummaryItems: [String] {
+        var items: [String] = []
+
+        if let remainingPhotos, remainingPhotos > 0 {
+            items.append("\(remainingPhotos) photos left")
+        }
+
+        if let storageSummary {
+            items.append(storageSummary)
+        }
+
+        if let videoSettingSummary {
+            items.append(videoSettingSummary)
+        }
+
+        if let lens {
+            items.append(lens)
+        }
+
+        if let hypersmooth {
+            items.append("HS \(hypersmooth)")
+        }
+
+        return items
+    }
+
+    var summaryItems: [String] {
+        primarySummaryItems + detailSummaryItems
+    }
+
+    var primarySummaryLine: String? {
+        let items = primarySummaryItems
+        return items.isEmpty ? nil : items.joined(separator: " · ")
+    }
+
+    var detailSummaryLine: String? {
+        let items = detailSummaryItems
+        return items.isEmpty ? nil : items.joined(separator: " · ")
+    }
+
+    var summaryLine: String? {
+        let items = summaryItems
+        return items.isEmpty ? nil : items.joined(separator: " · ")
+    }
+
+    mutating func merge(_ update: CameraTelemetry) {
+        if let batteryPercent = update.batteryPercent { self.batteryPercent = batteryPercent }
+        if let batteryBars = update.batteryBars { self.batteryBars = batteryBars }
+        if let storageState = update.storageState { self.storageState = storageState }
+        if let remainingVideoSeconds = update.remainingVideoSeconds { self.remainingVideoSeconds = remainingVideoSeconds }
+        if let remainingPhotos = update.remainingPhotos { self.remainingPhotos = remainingPhotos }
+        if let sdCardCapacityMB = update.sdCardCapacityMB { self.sdCardCapacityMB = sdCardCapacityMB }
+        if let storageFreeMB = update.storageFreeMB { self.storageFreeMB = storageFreeMB }
+        if let storageTotalMB = update.storageTotalMB { self.storageTotalMB = storageTotalMB }
+        if let videoResolution = update.videoResolution { self.videoResolution = videoResolution }
+        if let frameRate = update.frameRate { self.frameRate = frameRate }
+        if let framing = update.framing { self.framing = framing }
+        if let lens = update.lens { self.lens = lens }
+        if let hypersmooth = update.hypersmooth { self.hypersmooth = hypersmooth }
+        if !update.isEmpty { self.lastUpdated = update.lastUpdated ?? Date() }
+    }
+
+    private var storageSummary: String? {
+        if let storageFreeMB, let storageTotalMB, storageTotalMB > 0 {
+            return "Storage \(Self.storageLabel(mb: storageFreeMB))/\(Self.storageLabel(mb: storageTotalMB))"
+        }
+
+        if let sdCardCapacityMB, sdCardCapacityMB > 0 {
+            return "SD \(Self.storageLabel(mb: sdCardCapacityMB))"
+        }
+
+        return storageState
+    }
+
+    private var videoSettingSummary: String? {
+        let displayFraming = framingAlreadyIncludedInResolution ? nil : framing
+
+        switch (videoResolution, frameRate, displayFraming) {
+        case let (resolution?, frameRate?, framing?):
+            return "\(resolution) \(frameRate) \(framing)"
+        case let (resolution?, frameRate?, nil):
+            return "\(resolution) \(frameRate)"
+        case let (resolution?, nil, framing?):
+            return "\(resolution) \(framing)"
+        case let (nil, frameRate?, framing?):
+            return "\(frameRate) \(framing)"
+        case let (resolution?, nil, nil):
+            return resolution
+        case let (nil, frameRate?, nil):
+            return frameRate
+        case let (nil, nil, framing?):
+            return framing
+        case (nil, nil, nil):
+            return nil
+        }
+    }
+
+    private var framingAlreadyIncludedInResolution: Bool {
+        guard let videoResolution, let framing else { return false }
+        return videoResolution.contains(framing)
+    }
+
+    private static func durationLabel(seconds: UInt32) -> String {
+        let totalMinutes = Int(seconds) / 60
+        let hours = totalMinutes / 60
+        let minutes = totalMinutes % 60
+
+        if hours > 0, minutes > 0 {
+            return "\(hours)h \(minutes)m"
+        }
+
+        if hours > 0 {
+            return "\(hours)h"
+        }
+
+        return "\(max(1, minutes))m"
+    }
+
+    private static func storageLabel(mb: UInt32) -> String {
+        guard mb >= 1024 else { return "\(mb) MB" }
+        let gb = Double(mb) / 1024.0
+        if gb >= 10 {
+            return "\(Int(gb.rounded())) GB"
+        }
+        return String(format: "%.1f GB", gb)
+    }
+}
+
 enum CameraBehaviorKind: Equatable {
     case goProHero13Black
     case djiOsmoAction6
@@ -214,6 +390,7 @@ struct DiscoveredCamera: Identifiable, Equatable, Codable {
     var connectionState: CameraConnectionState
     var recordingState: CameraRecordingState
     var currentMode: CaptureMode? = nil
+    var telemetry: CameraTelemetry? = nil
     var isPaired: Bool
     var isSelected: Bool
     var lastSeen: Date
@@ -431,6 +608,7 @@ struct CameraSetting: Equatable, Codable {
 struct CameraStatusUpdate: Equatable {
     var recordingState: CameraRecordingState? = nil
     var currentMode: CaptureMode? = nil
+    var telemetry: CameraTelemetry? = nil
     var model: CameraModel? = nil
     var canClearActiveRecording: Bool = true
     var shouldClearCurrentMode: Bool = false

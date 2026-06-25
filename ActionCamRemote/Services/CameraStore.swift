@@ -485,12 +485,16 @@ private extension CameraStore {
         let now = Date()
         let isConnectable = candidate.isConnectable ?? true
         var isAvailabilitySuppressed = (availabilitySuppressedUntilByCameraID[candidate.id] ?? .distantPast) > now
+        let previousAwakeAdvertisement = awakeAdvertisementByCameraID[candidate.id]
         if let isAwake = candidate.isAwake {
             awakeAdvertisementByCameraID[candidate.id] = isAwake
             awakeAdvertisementSeenAtByCameraID[candidate.id] = now
             if isAwake, isAvailabilitySuppressed {
                 availabilitySuppressedUntilByCameraID.removeValue(forKey: candidate.id)
                 isAvailabilitySuppressed = false
+            }
+            if isAwake, previousAwakeAdvertisement == false {
+                autoConnectSuppressedUntilByCameraID.removeValue(forKey: candidate.id)
             }
         }
 
@@ -646,10 +650,15 @@ private extension CameraStore {
             return false
         }
 
+        if let suppressedUntil = autoConnectSuppressedUntilByCameraID[camera.id] {
+            if suppressedUntil > now {
+                return false
+            }
+            autoConnectSuppressedUntilByCameraID.removeValue(forKey: camera.id)
+        }
+
         if camera.brand == .gopro {
-            // A GoPro BLE connection wakes or keeps the camera awake, so only connect
-            // for an explicit queued command rather than a passive scan advertisement.
-            return false
+            return freshAwakeAdvertisement(for: camera.id, now: now) == true
         }
 
         if camera.brand == .dji,
@@ -1542,6 +1551,12 @@ private extension CameraStore {
             cameras[index].currentMode = nil
         } else if let currentMode = update.currentMode {
             cameras[index].currentMode = currentMode
+        }
+
+        if let telemetry = update.telemetry {
+            var mergedTelemetry = cameras[index].telemetry ?? CameraTelemetry()
+            mergedTelemetry.merge(telemetry)
+            cameras[index].telemetry = mergedTelemetry.isEmpty ? nil : mergedTelemetry
         }
 
         if let model = update.model, model != .unknown, cameras[index].model != model {

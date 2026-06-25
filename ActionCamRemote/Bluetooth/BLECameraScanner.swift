@@ -430,10 +430,6 @@ private extension BLECameraScanner {
         from advertisementData: [String: Any],
         advertisedServices: [CBUUID]
     ) -> Bool? {
-        if advertisedServices.contains(GoProBLEUUID.serviceControlAndQuery) {
-            return true
-        }
-
         guard let manufacturerData = goProManufacturerData(from: advertisementData),
               manufacturerData.count >= 4 else {
             return nil
