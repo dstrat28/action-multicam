@@ -21,7 +21,13 @@ struct CameraDashboardView: View {
                 }
                 .padding()
             }
-            .background(Color.acrAppBackground)
+            .background(
+                LinearGradient(
+                    colors: [Color.acrAppBackground, Color.acrInsetSurface.opacity(0.65)],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+            )
             .navigationTitle("Action Cam Remote")
             .toolbar {
                 ToolbarItemGroup(placement: .topBarTrailing) {
@@ -55,40 +61,61 @@ private struct ControlDeckView: View {
     @Environment(CameraStore.self) private var store
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack {
-                VStack(alignment: .leading, spacing: 3) {
-                    Text("Multicam Control")
-                        .font(.title2.weight(.bold))
-                    Text("\(store.selectedControllableCameras.count) selected · \(store.connectedCameras.count) connected")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                }
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(alignment: .top, spacing: 12) {
+                Text("Multicam Control")
+                    .font(.title2.weight(.bold))
+                    .foregroundStyle(.white)
 
                 Spacer()
-            }
 
-            HStack(spacing: 10) {
-                if store.canStopMulticamRecording {
-                    IconActionButton("Stop All Cameras", systemImage: "stop.circle", role: nil) {
-                        store.stopMulticamRecording()
-                    }
-                    .tint(.acrInk)
-                } else {
-                    IconActionButton(startButtonTitle, systemImage: "record.circle", role: nil) {
-                        store.startMulticamRecording()
-                    }
-                    .tint(.acrRecord)
-                    .disabled(!store.canStartMulticamRecording)
+                VStack(alignment: .trailing, spacing: 6) {
+                    SessionCountPill(
+                        text: "\(store.selectedControllableCameras.count) selected",
+                        systemImage: "checkmark.circle"
+                    )
+                    SessionCountPill(
+                        text: "\(store.connectedCameras.count) connected",
+                        systemImage: "dot.radiowaves.left.and.right"
+                    )
                 }
             }
 
-            Text(store.multicamReadinessMessage)
-                .font(.caption)
-                .foregroundStyle(store.canStartMulticamRecording ? Color.acrReady : .secondary)
+            HStack(spacing: 12) {
+                if store.canStopMulticamRecording {
+                    MulticamCommandButton(
+                        title: "Stop All Cameras",
+                        systemImage: "stop.circle",
+                        color: .acrRecord,
+                        isEnabled: true
+                    ) {
+                        store.stopMulticamRecording()
+                    }
+                } else {
+                    MulticamCommandButton(
+                        title: startButtonTitle,
+                        systemImage: "record.circle",
+                        color: .acrReady,
+                        isEnabled: store.canStartMulticamRecording
+                    ) {
+                        store.startMulticamRecording()
+                    }
+                }
+            }
         }
-        .padding()
-        .acrCard()
+        .padding(18)
+        .background(
+            LinearGradient(
+                colors: [.acrCommandTop, .acrCommandBottom],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            ),
+            in: RoundedRectangle(cornerRadius: 24, style: .continuous)
+        )
+        .overlay(alignment: .topTrailing) {
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .stroke(Color.white.opacity(0.12), lineWidth: 1)
+        }
     }
 
     private var startButtonTitle: String {
@@ -101,6 +128,55 @@ private struct ControlDeckView: View {
     }
 }
 
+private struct MulticamCommandButton: View {
+    var title: String
+    var systemImage: String
+    var color: Color
+    var isEnabled: Bool
+    var action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Label(title, systemImage: systemImage)
+                .font(.headline.weight(.semibold))
+                .foregroundStyle(.white.opacity(isEnabled ? 1 : 0.64))
+                .frame(maxWidth: .infinity)
+                .frame(height: 48)
+                .background(buttonFill, in: Capsule())
+                .overlay {
+                    Capsule()
+                        .stroke(Color.white.opacity(isEnabled ? 0.12 : 0.08), lineWidth: 1)
+                }
+        }
+        .buttonStyle(.plain)
+        .disabled(!isEnabled)
+        .accessibilityLabel(title)
+    }
+
+    private var buttonFill: Color {
+        isEnabled ? color : Color.white.opacity(0.10)
+    }
+}
+
+private struct SessionCountPill: View {
+    var text: String
+    var systemImage: String
+
+    var body: some View {
+        Label(text, systemImage: systemImage)
+            .font(.caption.weight(.semibold))
+            .foregroundStyle(.white.opacity(0.88))
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(Color.white.opacity(0.10), in: Capsule())
+            .overlay {
+                Capsule()
+                    .stroke(Color.white.opacity(0.12), lineWidth: 1)
+            }
+            .lineLimit(1)
+    }
+}
+
 private struct CameraListView: View {
     @Environment(CameraStore.self) private var store
     var isShowingDiagnostics: Bool
@@ -110,12 +186,17 @@ private struct CameraListView: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
                 Text("Cameras")
-                    .font(.headline)
+                    .font(.title3.weight(.bold))
                 Spacer()
-                Button("Manage") {
+                Button {
                     onManage()
+                } label: {
+                    Label("Manage", systemImage: "slider.horizontal.3")
+                        .font(.subheadline.weight(.semibold))
                 }
                 .buttonStyle(.bordered)
+                .controlSize(.small)
+                .tint(.acrAccent)
             }
 
             if store.pairedCameras.isEmpty {
@@ -130,7 +211,7 @@ private struct CameraListView: View {
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 30)
                 .padding(.horizontal)
-                .acrCard()
+                .acrCard(fill: Color.acrSurface.opacity(0.78), stroke: Color.acrLine.opacity(0.8))
             } else {
                 LazyVStack(spacing: 10) {
                     ForEach(store.pairedCameras) { camera in
@@ -165,6 +246,8 @@ private struct PairingView: View {
                 }
             }
         }
+        .scrollContentBackground(.hidden)
+        .background(Color.acrAppBackground)
         .navigationTitle("Manage Cameras")
         .onAppear {
             store.setPairingModeActive(true)
@@ -200,8 +283,9 @@ private struct PairingCameraRow: View {
 
                     Text("\(camera.brand.rawValue) · \(camera.model.rawValue) · \(camera.connectionState.label)")
                         .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
+                        .foregroundStyle(Color.acrMutedText)
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
 
                 Spacer()
@@ -243,7 +327,7 @@ private struct PairingCameraRow: View {
                let detail = camera.connectionState.detail {
                 Text(detail)
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Color.acrMutedText)
             }
         }
         .padding(.vertical, 4)
@@ -283,9 +367,10 @@ private struct DiagnosticsView: View {
         } label: {
             Label("Diagnostics", systemImage: "waveform.path.ecg")
                 .font(.headline)
+                .foregroundStyle(Color.acrInk)
         }
         .padding()
-        .acrCard()
+        .acrCard(fill: Color.acrSurface.opacity(0.78), stroke: Color.acrLine.opacity(0.9))
     }
 }
 

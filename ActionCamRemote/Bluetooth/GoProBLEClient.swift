@@ -263,7 +263,7 @@ private extension GoProBLEClient {
             case let .loadPresetGroup(mode):
                 GoProPacket.commandPayload(
                     id: 0x3E,
-                    parameterData: [GoProPacket.uint32(mode.goProPresetGroupID)]
+                    parameterData: [GoProPacket.uint16(mode.goProPresetGroupID)]
                 )
             }
         }
@@ -661,6 +661,13 @@ enum GoProPacket {
 
     static func protobufPayload(featureID: UInt8, actionID: UInt8, message: Data = Data()) -> Data {
         Data([featureID, actionID]) + message
+    }
+
+    static func uint16(_ value: UInt16) -> Data {
+        Data([
+            UInt8((value >> 8) & 0xFF),
+            UInt8(value & 0xFF)
+        ])
     }
 
     static func uint32(_ value: UInt32) -> Data {
@@ -1158,7 +1165,7 @@ private extension UInt8 {
 }
 
 private extension CaptureMode {
-    var goProPresetGroupID: UInt32 {
+    var goProPresetGroupID: UInt16 {
         switch self {
         case .video:
             1000

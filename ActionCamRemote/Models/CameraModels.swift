@@ -518,7 +518,7 @@ struct DiscoveredCamera: Identifiable, Equatable, Codable {
 
     var isReadyForMulticamStart: Bool {
         guard canSelectForBatch, recordingState != .recording, recordingState != .starting else { return false }
-        guard canStartRecordingInCurrentMode else { return false }
+        guard canStartRecordingInCurrentMode || canSwitchToVideoMode else { return false }
         return !needsKnownStoppedStateForMulticam || recordingState == .stopped
     }
 

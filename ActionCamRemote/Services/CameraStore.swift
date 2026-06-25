@@ -142,7 +142,6 @@ final class CameraStore {
 
     var canStartMulticamRecording: Bool {
         !selectedControllableCameras.isEmpty
-            && connectedRecordCameras.allSatisfy(\.isReadyForMulticamStart)
             && selectedControllableCameras.allSatisfy(\.isReadyForMulticamStart)
     }
 
@@ -170,15 +169,17 @@ final class CameraStore {
             return "Waiting for cameras to start recording."
         }
 
-        if connectedRecordCameras.contains(where: { $0.recordingState == .recording }) {
+        if selectedControllableCameras.contains(where: { $0.recordingState == .recording }) {
             return "Stop recording cameras individually before multicam start."
         }
 
-        if selectedControllableCameras.contains(where: { $0.isConnected && !$0.canStartRecordingInCurrentMode }) {
+        if selectedControllableCameras.contains(where: {
+            $0.isConnected && !$0.canStartRecordingInCurrentMode && !$0.canSwitchToVideoMode
+        }) {
             return "Switch cameras to Video mode before recording."
         }
 
-        if selectedControllableCameras.contains(where: { $0.brand != .dji && $0.isConnected && $0.currentMode != .video }) {
+        if selectedControllableCameras.contains(where: { $0.isConnected && $0.canSwitchToVideoMode }) {
             return "Ready. Start will switch selected cameras to Video first."
         }
 
@@ -1300,13 +1301,8 @@ private extension CameraStore {
     }
 
     func sendVideoModeCommandAttempt(for camera: DiscoveredCamera, attemptsAlreadySent: Int) {
-        if camera.brand == .gopro {
-            appendLog("\(camera.name): cycling GoPro mode toward Video.")
-            send(.cycleMode, to: [camera])
-        } else {
-            appendLog("\(camera.name): sending Video mode command.")
-            send(.setMode(.video), to: [camera])
-        }
+        appendLog("\(camera.name): sending Video mode command.")
+        send(.setMode(.video), to: [camera])
     }
 
     func pendingStartStatusUpdate(for camera: DiscoveredCamera) -> CameraStatusUpdate {

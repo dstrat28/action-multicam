@@ -7,76 +7,114 @@ struct CameraRowView: View {
     var isShowingDiagnostics: Bool
 
     var body: some View {
-        HStack(alignment: .center, spacing: 12) {
-            Button {
-                store.toggleSelection(for: camera)
-            } label: {
-                Image(systemName: camera.isSelected ? "checkmark.circle.fill" : "circle")
-                    .font(.title3)
-                    .foregroundStyle(selectionColor)
-                    .frame(width: 34, height: 34)
-            }
-            .buttonStyle(.plain)
-            .disabled(!camera.canSelectForBatch && !camera.isSelected)
-            .accessibilityLabel(camera.isSelected ? "Deselect \(camera.name)" : "Select \(camera.name)")
+        HStack(spacing: 0) {
+            UnevenRoundedRectangle(
+                topLeadingRadius: ACRDesign.cardCornerRadius,
+                bottomLeadingRadius: ACRDesign.cardCornerRadius,
+                bottomTrailingRadius: 0,
+                topTrailingRadius: 0,
+                style: .continuous
+            )
+                .fill(rowAccent)
+                .frame(width: 6)
 
-            VStack(alignment: .leading, spacing: 5) {
-                Text(camera.name)
-                    .font(.headline)
-                    .lineLimit(1)
-
-                Text(cameraSubtitle)
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(2)
-
-                if let telemetry {
-                    CameraTelemetryDisclosure(
-                        telemetry: telemetry,
-                        isExpanded: $isShowingTelemetryDetails
-                    )
-                }
-
-                if let unsupportedReason = camera.unsupportedReason {
-                    Text(unsupportedReason)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(3)
-                }
-
-                #if DEBUG
-                if isShowingDiagnostics {
-                    if camera.unsupportedReason == nil,
-                       let detail = camera.connectionState.detail {
-                        Text(detail)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .lineLimit(2)
+            VStack(alignment: .leading, spacing: 0) {
+                HStack(alignment: .center, spacing: 12) {
+                    Button {
+                        store.toggleSelection(for: camera)
+                    } label: {
+                        Image(systemName: camera.isSelected ? "checkmark.circle.fill" : "circle")
+                            .font(.title3)
+                            .foregroundStyle(selectionColor)
+                            .frame(width: 34, height: 34)
                     }
+                    .buttonStyle(.plain)
+                    .disabled(!camera.canSelectForBatch && !camera.isSelected)
+                    .accessibilityLabel(camera.isSelected ? "Deselect \(camera.name)" : "Select \(camera.name)")
 
-                    if let diagnosticDetail = store.cameraDiagnosticDetail(for: camera),
-                       shouldShowDiagnosticDetail {
-                        Text(diagnosticDetail)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
+                    Text(camera.name)
+                        .font(.headline.weight(.semibold))
+                        .foregroundStyle(Color.acrInk)
+                        .lineLimit(1)
+
+                    Spacer(minLength: 4)
+
+                    StatusPill(text: camera.displayConnectionLabel, color: rowAccent)
+                }
+
+                HStack(alignment: .top, spacing: 0) {
+                    Color.clear
+                        .frame(width: leadingContentInset)
+
+                    VStack(alignment: .leading, spacing: 7) {
+                        Text(cameraSubtitle)
+                            .font(.subheadline)
+                            .foregroundStyle(Color.acrMutedText)
                             .lineLimit(2)
+
+                        if let unsupportedReason = camera.unsupportedReason {
+                            Text(unsupportedReason)
+                                .font(.caption)
+                                .foregroundStyle(Color.acrMutedText)
+                                .lineLimit(3)
+                        }
+
+                        #if DEBUG
+                        if isShowingDiagnostics {
+                            if camera.unsupportedReason == nil,
+                               let detail = camera.connectionState.detail {
+                                Text(detail)
+                                    .font(.caption)
+                                    .foregroundStyle(Color.acrMutedText)
+                                    .lineLimit(2)
+                            }
+
+                            if let diagnosticDetail = store.cameraDiagnosticDetail(for: camera),
+                               shouldShowDiagnosticDetail {
+                                Text(diagnosticDetail)
+                                    .font(.caption)
+                                    .foregroundStyle(Color.acrMutedText)
+                                    .lineLimit(2)
+                            }
+                        }
+                        #endif
                     }
                 }
-                #endif
-            }
+                .padding(.top, 2)
 
-            Spacer(minLength: 8)
+                if shouldShowMetricsOrActions {
+                    HStack(alignment: .center, spacing: 0) {
+                        Color.clear
+                            .frame(width: leadingContentInset)
 
-            HStack(spacing: 8) {
-                if camera.canSwitchToVideoMode {
-                    CameraVideoModeButton(camera: camera)
+                        CameraTelemetryStrip(telemetry: telemetry, brand: camera.brand)
+
+                        Spacer(minLength: 8)
+
+                        actionControls
+                    }
+                    .padding(.top, 9)
                 }
 
-                CameraRecordButton(camera: camera)
+                if let telemetry, telemetry.detailSummaryLine != nil {
+                    HStack(alignment: .top, spacing: 0) {
+                        Color.clear.frame(width: leadingContentInset)
+                        CameraTelemetryDisclosure(
+                            telemetry: telemetry,
+                            isExpanded: $isShowingTelemetryDetails
+                        )
+                    }
+                    .padding(.top, 8)
+                }
             }
+            .padding(14)
         }
-        .padding(12)
-        .acrCard(stroke: camera.isSelected ? Color.acrReady.opacity(0.55) : Color.acrLine)
+        .background(Color.acrSurface, in: RoundedRectangle(cornerRadius: ACRDesign.cardCornerRadius, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: ACRDesign.cardCornerRadius, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: ACRDesign.cardCornerRadius, style: .continuous)
+                .stroke(rowStroke, lineWidth: 1)
+        }
     }
 
     private var selectionColor: Color {
@@ -86,22 +124,61 @@ struct CameraRowView: View {
         return camera.canSelectForBatch ? .secondary : Color.secondary.opacity(0.35)
     }
 
-    private var recordControlLabel: String {
-        guard camera.supportsBatchRecord else { return "Record Control Pending" }
-        if camera.isAvailableToConnect, camera.recordingState == .unknown {
-            return CameraRecordingState.stopped.rawValue
+    private var rowAccent: Color {
+        if camera.recordingState == .recording {
+            return .acrRecord
         }
-        return camera.recordingState.rawValue
+        return camera.connectionState.statusColor
+    }
+
+    private var rowStroke: Color {
+        Color.acrLine.opacity(0.85)
+    }
+
+    private var leadingContentInset: CGFloat {
+        46
+    }
+
+    private var shouldShowMetricsOrActions: Bool {
+        hasPrimaryTelemetry || shouldShowActionControls
+    }
+
+    private var hasPrimaryTelemetry: Bool {
+        guard let telemetry else { return false }
+        return telemetry.batteryPercent != nil
+            || telemetry.batteryBars != nil
+            || (camera.brand != .dji && telemetry.remainingVideoSeconds != nil)
+    }
+
+    private var shouldShowActionControls: Bool {
+        camera.canSwitchToVideoMode || camera.primaryRecordCommand != nil || camera.recordingState == .starting
+    }
+
+    @ViewBuilder
+    private var actionControls: some View {
+        HStack(spacing: 8) {
+            if camera.canSwitchToVideoMode {
+                CameraVideoModeButton(camera: camera)
+            }
+
+            if shouldShowRecordControl {
+                CameraRecordButton(camera: camera)
+            }
+        }
+    }
+
+    private var shouldShowRecordControl: Bool {
+        !camera.canSwitchToVideoMode
+            && (camera.primaryRecordCommand != nil || camera.recordingState == .starting)
     }
 
     private var cameraSubtitle: String {
-        var parts = [camera.brand.rawValue, camera.model.rawValue, camera.displayConnectionLabel]
+        var parts = [camera.brand.rawValue, camera.model.rawValue]
 
         if camera.isConnected {
             if let currentMode = camera.currentMode {
                 parts.append(currentMode.rawValue)
             }
-            parts.append(recordControlLabel)
         }
 
         return parts.joined(separator: " · ")
@@ -117,19 +194,90 @@ struct CameraRowView: View {
     }
 }
 
+private struct CameraTelemetryStrip: View {
+    var telemetry: CameraTelemetry?
+    var brand: CameraBrand
+
+    var body: some View {
+        if !metricPills.isEmpty {
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 6) {
+                    ForEach(metricPills, id: \.text) { item in
+                        MetricPill(text: item.text, systemImage: item.systemImage)
+                    }
+                }
+
+                VStack(alignment: .leading, spacing: 6) {
+                    ForEach(metricPills, id: \.text) { item in
+                        MetricPill(text: item.text, systemImage: item.systemImage)
+                    }
+                }
+            }
+        }
+    }
+
+    private var metricPills: [(text: String, systemImage: String)] {
+        guard let telemetry else { return [] }
+        var items: [(text: String, systemImage: String)] = []
+
+        if let batteryPercent = telemetry.batteryPercent {
+            items.append(("Battery \(batteryPercent)%", batteryIcon(percent: batteryPercent)))
+        } else if let batteryBars = telemetry.batteryBars {
+            items.append(("Battery \(batteryBars)/4", batteryIcon(bars: batteryBars)))
+        }
+
+        if brand != .dji, let remainingVideoSeconds = telemetry.remainingVideoSeconds {
+            items.append(("\(durationLabel(seconds: remainingVideoSeconds)) left", "record.circle"))
+        }
+
+        return items
+    }
+
+    private func durationLabel(seconds: UInt32) -> String {
+        let totalMinutes = Int(seconds) / 60
+        let hours = totalMinutes / 60
+        let minutes = totalMinutes % 60
+
+        if hours > 0, minutes > 0 {
+            return "\(hours)h \(minutes)m"
+        }
+
+        if hours > 0 {
+            return "\(hours)h"
+        }
+
+        return "\(max(1, minutes))m"
+    }
+
+    private func batteryIcon(percent: Int) -> String {
+        let boundedPercent = min(max(percent, 0), 100)
+
+        switch boundedPercent {
+        case 0...12:
+            return "battery.0percent"
+        case 13...37:
+            return "battery.25percent"
+        case 38...62:
+            return "battery.50percent"
+        case 63...87:
+            return "battery.75percent"
+        default:
+            return "battery.100percent"
+        }
+    }
+
+    private func batteryIcon(bars: Int) -> String {
+        let boundedBars = min(max(bars, 0), 4)
+        return batteryIcon(percent: boundedBars * 25)
+    }
+}
+
 private struct CameraTelemetryDisclosure: View {
     var telemetry: CameraTelemetry
     @Binding var isExpanded: Bool
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            if let primarySummary = telemetry.primarySummaryLine {
-                Text(primarySummary)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-            }
-
             if let detailSummary = telemetry.detailSummaryLine {
                 Button {
                     withAnimation(.snappy(duration: 0.18)) {
@@ -142,7 +290,7 @@ private struct CameraTelemetryDisclosure: View {
                             .font(.caption2.weight(.semibold))
                     }
                     .font(.caption.weight(.semibold))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Color.acrMutedText)
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(isExpanded ? "Hide camera details" : "Show camera details")
@@ -150,7 +298,7 @@ private struct CameraTelemetryDisclosure: View {
                 if isExpanded {
                     Text(detailSummary)
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(Color.acrMutedText)
                         .lineLimit(3)
                         .transition(.opacity.combined(with: .move(edge: .top)))
                 }
