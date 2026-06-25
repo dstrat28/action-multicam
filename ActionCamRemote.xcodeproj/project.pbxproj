@@ -329,7 +329,7 @@
 				DEVELOPMENT_TEAM = 2WX2Z9452K;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = ActionCamRemote/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = "Action Multicam";
+				INFOPLIST_KEY_CFBundleDisplayName = "Action Cam Remote";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.video";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -358,7 +358,7 @@
 				DEVELOPMENT_TEAM = 2WX2Z9452K;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = ActionCamRemote/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = "Action Multicam";
+				INFOPLIST_KEY_CFBundleDisplayName = "Action Cam Remote";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.video";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
