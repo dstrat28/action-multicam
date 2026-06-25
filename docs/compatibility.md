@@ -83,14 +83,14 @@ Status: tested, experimental.
 
 Implemented:
 
-- BLE Available-state detection;
-- wake/connect/start flow from Available state;
+- BLE connect while the camera is awake;
 - record start/stop;
 - recording-state reads from DJI camera-state notifications;
-- Nano-specific state smoothing for wake/start transitions.
+- Nano-specific state smoothing for connected record/start transitions.
 
 Known limits:
 
+- Sleep wake may be possible over BLE, but local testing was buggy: the camera could start recording from sleep inconsistently, then the app would see unstable connect/disconnect state and sometimes could not stop the recording. The app no longer exposes DJI Available-state recording and treats sleeping DJI cameras as Not Connected.
 - Mode switching is not reliable enough to expose as supported. Put the camera in Video mode on-device before recording.
 - Settings control is not mapped.
 - Off/asleep advertisement behavior may vary by firmware and power state.
