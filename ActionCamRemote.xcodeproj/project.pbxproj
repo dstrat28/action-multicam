@@ -34,7 +34,7 @@
 		ACR000000000000000000010 /* CameraRowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraRowView.swift; sourceTree = "<group>"; };
 		ACR000000000000000000011 /* PreviewData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreviewData.swift; sourceTree = "<group>"; };
 		ACR000000000000000000012 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
-		ACR000000000000000000013 /* ActionCamRemote.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ActionCamRemote.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		ACR000000000000000000013 /* Multicam.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Multicam.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		ACR000000000000000000014 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -74,7 +74,7 @@
 		ACR000000000000000000302 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				ACR000000000000000000013 /* ActionCamRemote.app */,
+				ACR000000000000000000013 /* Multicam.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -134,7 +134,7 @@
 			);
 			name = ActionCamRemote;
 			productName = ActionCamRemote;
-			productReference = ACR000000000000000000013 /* ActionCamRemote.app */;
+			productReference = ACR000000000000000000013 /* Multicam.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
@@ -341,6 +341,7 @@
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SUPPORTS_MACCATALYST = NO;
 				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -370,6 +371,7 @@
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SUPPORTS_MACCATALYST = NO;
 				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
