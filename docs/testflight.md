@@ -2,6 +2,8 @@
 
 This project is set up for TestFlight through App Store Connect. Xcode Cloud can build on pushes to GitHub; local archive/upload commands are kept here as a fallback.
 
+Public TestFlight link: https://testflight.apple.com/join/ecxSpXZX
+
 ## Current App Metadata
 
 - App Store Connect name: `Action Multicam Remote`
@@ -63,10 +65,4 @@ If Xcode cannot create distribution signing assets automatically, open Xcode, si
 
 ## Public TestFlight Link
 
-Once the build appears in App Store Connect:
-
-1. Add internal testers first to smoke-test the uploaded build.
-2. Create an external tester group.
-3. Complete Test Information and submit the first external build for Beta App Review.
-4. After approval, enable Public Link for the external group.
-5. Replace the placeholder link in `README.md` with the generated `https://testflight.apple.com/join/...` URL.
+The public TestFlight beta is available at https://testflight.apple.com/join/ecxSpXZX.
