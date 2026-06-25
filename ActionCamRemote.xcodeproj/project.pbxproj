@@ -329,7 +329,7 @@
 				DEVELOPMENT_TEAM = 2WX2Z9452K;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = ActionCamRemote/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = "Action Cam Remote";
+				INFOPLIST_KEY_CFBundleDisplayName = Multicam;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.video";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -337,7 +337,7 @@
 				);
 				MARKETING_VERSION = 0.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.ds.ActionCamRemote;
-				PRODUCT_NAME = "$(TARGET_NAME)";
+				PRODUCT_NAME = Multicam;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SUPPORTS_MACCATALYST = NO;
 				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
@@ -358,7 +358,7 @@
 				DEVELOPMENT_TEAM = 2WX2Z9452K;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = ActionCamRemote/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = "Action Cam Remote";
+				INFOPLIST_KEY_CFBundleDisplayName = Multicam;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.video";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -366,7 +366,7 @@
 				);
 				MARKETING_VERSION = 0.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.ds.ActionCamRemote;
-				PRODUCT_NAME = "$(TARGET_NAME)";
+				PRODUCT_NAME = Multicam;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SUPPORTS_MACCATALYST = NO;
 				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;

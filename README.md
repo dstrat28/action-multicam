@@ -1,14 +1,14 @@
-# Action Cam Remote
+# Multicam
 
 Native iOS app for controlling multiple action cameras over Bluetooth.
 
-Action Cam Remote is built for simultaneous multi-camera capture control. It can pair remembered cameras, reconnect to available cameras, select which cameras should be controlled, and start/stop recording across selected cameras.
+Multicam is built for simultaneous multi-camera capture control. It can pair remembered cameras, reconnect to available cameras, select which cameras should be controlled, and start/stop recording across selected cameras.
 
 [Join the public TestFlight beta](https://testflight.apple.com/join/ecxSpXZX).
 
 GoPro support is built on the public Open GoPro BLE API. DJI Action/Nano support is experimental and based on observed BLE/DUML behavior because DJI does not publish an equivalent camera-control API for these cameras. The app only enables controls for camera models that have been tested directly.
 
-Action Cam Remote is an independent project and is not affiliated with, endorsed by, or sponsored by GoPro, DJI, or their affiliates.
+Multicam is an independent project and is not affiliated with, endorsed by, or sponsored by GoPro, DJI, or their affiliates.
 
 ## Status
 

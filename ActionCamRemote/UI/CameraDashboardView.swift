@@ -22,7 +22,7 @@ struct CameraDashboardView: View {
                 .padding()
             }
             .background(Color.acrPanel.opacity(0.45))
-            .navigationTitle("Action Cam Remote")
+            .navigationTitle("Multicam")
             .toolbar {
                 ToolbarItemGroup(placement: .topBarTrailing) {
                     Button {
