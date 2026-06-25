@@ -24,7 +24,7 @@ The App Store Connect app record exists:
 - SKU: `action-multicam-ios`
 - Primary language: English (U.S.)
 
-Build `0.1 (1)` was uploaded from Xcode and is visible in TestFlight. Build `0.1 (2)` includes the release-only diagnostics cleanup, `Multicam` in-app title, and `ITSAppUsesNonExemptEncryption=false`.
+Build `0.1 (1)` was uploaded from Xcode and is visible in TestFlight. Build `0.1 (2)` includes the release-only diagnostics cleanup, `Action Cam Remote` in-app title, and `ITSAppUsesNonExemptEncryption=false`.
 
 ## Xcode Cloud
 
