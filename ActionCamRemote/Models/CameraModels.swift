@@ -9,7 +9,14 @@ enum CameraBrand: String, CaseIterable, Identifiable, Codable {
 }
 
 enum CameraModel: String, Identifiable, Codable {
+    case goproLitHero = "LIT HERO"
+    case goproMax2 = "MAX 2"
     case goproHero13Black = "HERO13 Black"
+    case goproHero12Black = "HERO12 Black"
+    case goproHero11BlackMini = "HERO11 Black Mini"
+    case goproHero11Black = "HERO11 Black"
+    case goproHero10Black = "HERO10 Black"
+    case goproHero9Black = "HERO9 Black"
     case djiOsmoAction6 = "Osmo Action 6"
     case djiOsmoNano = "Osmo Nano"
     case djiOsmoPocket3 = "Osmo Pocket 3"
@@ -19,12 +26,37 @@ enum CameraModel: String, Identifiable, Codable {
 
     var brand: CameraBrand {
         switch self {
-        case .goproHero13Black:
+        case .goproLitHero,
+             .goproMax2,
+             .goproHero13Black,
+             .goproHero12Black,
+             .goproHero11BlackMini,
+             .goproHero11Black,
+             .goproHero10Black,
+             .goproHero9Black:
             .gopro
         case .djiOsmoAction6, .djiOsmoNano, .djiOsmoPocket3:
             .dji
         case .unknown:
             .unknown
+        }
+    }
+}
+
+extension CameraModel {
+    var isOpenGoProCompatible: Bool {
+        switch self {
+        case .goproLitHero,
+             .goproMax2,
+             .goproHero13Black,
+             .goproHero12Black,
+             .goproHero11BlackMini,
+             .goproHero11Black,
+             .goproHero10Black,
+             .goproHero9Black:
+            true
+        case .djiOsmoAction6, .djiOsmoNano, .djiOsmoPocket3, .unknown:
+            false
         }
     }
 }
@@ -266,7 +298,7 @@ struct CameraTelemetry: Equatable, Codable {
 }
 
 enum CameraBehaviorKind: Equatable {
-    case goProHero13Black
+    case goProOpen
     case djiOsmoAction6
     case djiOsmoNano
     case djiOsmoPocket3
@@ -291,12 +323,29 @@ struct CameraBehaviorProfile: Equatable {
     ) -> CameraBehaviorProfile {
         let normalizedName = name.lowercased().filter { $0.isLetter || $0.isNumber }
 
-        if model == .goproHero13Black
+        if model.isOpenGoProCompatible
             || normalizedName.contains("hero13")
+            || normalizedName.contains("hero12")
+            || normalizedName.contains("hero11")
+            || normalizedName.contains("hero10")
+            || normalizedName.contains("hero9")
             || normalizedName.contains("13black")
-            || normalizedName.contains("h2401") {
+            || normalizedName.contains("12black")
+            || normalizedName.contains("11black")
+            || normalizedName.contains("10black")
+            || normalizedName.contains("9black")
+            || normalizedName.contains("max2")
+            || normalizedName.contains("lithero")
+            || normalizedName.contains("h2503")
+            || normalizedName.contains("h2402")
+            || normalizedName.contains("h2401")
+            || normalizedName.contains("h2301")
+            || normalizedName.contains("h2203")
+            || normalizedName.contains("h2201")
+            || normalizedName.contains("h2101")
+            || normalizedName.contains("hd901") {
             return CameraBehaviorProfile(
-                kind: .goProHero13Black,
+                kind: .goProOpen,
                 assumesRecordingAfterUnconfirmedDJIStart: false,
                 preservesActiveDJIRecordingAcrossReconnect: false,
                 trustsDJICompactRecordingStatus: false,
@@ -410,16 +459,25 @@ struct DiscoveredCamera: Identifiable, Equatable, Codable {
         model: CameraModel,
         name: String
     ) -> String? {
-        isTestedSupportedModel(brand: brand, model: model, name: name) ? nil : unsupportedCameraReason
+        isSupportedModel(brand: brand, model: model, name: name) ? nil : unsupportedCameraReason
     }
 
-    static func isTestedSupportedModel(
+    static func isSupportedModel(
         brand: CameraBrand,
         model: CameraModel,
         name: String
     ) -> Bool {
         switch model {
-        case .goproHero13Black, .djiOsmoAction6, .djiOsmoNano:
+        case .goproLitHero,
+             .goproMax2,
+             .goproHero13Black,
+             .goproHero12Black,
+             .goproHero11BlackMini,
+             .goproHero11Black,
+             .goproHero10Black,
+             .goproHero9Black,
+             .djiOsmoAction6,
+             .djiOsmoNano:
             return true
         case .djiOsmoPocket3, .unknown:
             break
@@ -428,8 +486,25 @@ struct DiscoveredCamera: Identifiable, Equatable, Codable {
         let normalizedName = name.lowercased().filter { $0.isLetter || $0.isNumber }
         if brand == .gopro {
             return normalizedName.contains("hero13")
+                || normalizedName.contains("hero12")
+                || normalizedName.contains("hero11")
+                || normalizedName.contains("hero10")
+                || normalizedName.contains("hero9")
                 || normalizedName.contains("13black")
+                || normalizedName.contains("12black")
+                || normalizedName.contains("11black")
+                || normalizedName.contains("10black")
+                || normalizedName.contains("9black")
+                || normalizedName.contains("max2")
+                || normalizedName.contains("lithero")
+                || normalizedName.contains("h2503")
+                || normalizedName.contains("h2402")
                 || normalizedName.contains("h2401")
+                || normalizedName.contains("h2301")
+                || normalizedName.contains("h2203")
+                || normalizedName.contains("h2201")
+                || normalizedName.contains("h2101")
+                || normalizedName.contains("hd901")
         }
 
         if brand == .dji {

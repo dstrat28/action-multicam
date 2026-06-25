@@ -6,7 +6,7 @@ Multicam is built for simultaneous multi-camera capture control. It can pair rem
 
 [Join the public TestFlight beta](https://testflight.apple.com/join/ecxSpXZX).
 
-GoPro support is built on the public Open GoPro BLE API. DJI Action/Nano support is experimental and based on observed BLE/DUML behavior because DJI does not publish an equivalent camera-control API for these cameras. The app only enables controls for camera models that have been tested directly.
+GoPro support is built on the public Open GoPro BLE API. DJI Action/Nano support is experimental and based on observed BLE/DUML behavior because DJI does not publish an equivalent camera-control API for these cameras. GoPro HERO13 Black is tested directly; other documented Open GoPro BLE cameras are enabled as compatible but untested.
 
 Multicam is an independent project and is not affiliated with, endorsed by, or sponsored by GoPro, DJI, or their affiliates.
 
@@ -23,10 +23,11 @@ Release/archive notes live in [`docs/testflight.md`](docs/testflight.md).
 | Camera | Status | Notes |
 | --- | --- | --- |
 | GoPro HERO13 Black | Tested | BLE discovery, wake/connect, start/stop recording, recording status, model detection, and Video preset switching are implemented through Open GoPro BLE. |
+| GoPro LIT HERO, MAX 2, HERO12 Black, HERO11 Black Mini, HERO11 Black, HERO10 Black, HERO9 Black | Compatible, untested | These models are listed in the public Open GoPro BLE API and use the same BLE client path. Model detection is enabled, but hardware behavior has not been verified locally. |
 | DJI Osmo Action 6 | Tested, experimental | BLE connect, start/stop recording in Video mode, and recording-state reads are implemented. Sleep wake has not been observed to work over BLE. DJI mode/settings commands are not considered reliable. |
 | DJI Osmo Nano | Tested, experimental | BLE available-state wake/start, start/stop recording, and recording status are implemented with Nano-specific state handling. DJI mode/settings commands are not considered reliable. |
 | DJI Osmo Pocket 3 | Not supported | The app recognizes Pocket 3 devices but disables pairing, selection, and record controls. Local testing found BLE status traffic, but no working BLE-only record command; DJI's documented phone-control path uses Bluetooth plus Wi-Fi. |
-| Other cameras | Not supported | Cameras outside the tested list are shown as Unsupported until their BLE behavior is tested and mapped. |
+| Other cameras | Not supported | Cameras outside the tested DJI list or documented Open GoPro BLE list are shown as Unsupported until their BLE behavior is tested and mapped. |
 
 ## What Works
 
@@ -43,7 +44,8 @@ Release/archive notes live in [`docs/testflight.md`](docs/testflight.md).
 - DJI support is experimental and may vary by firmware.
 - DJI mode switching and settings editing are intentionally limited until the BLE command mapping is proven.
 - DJI recording should be started only when the camera is already in Video mode.
-- Only GoPro HERO13 Black, DJI Osmo Action 6, and DJI Osmo Nano are currently enabled. Other discovered cameras are shown as Unsupported until tested.
+- GoPro HERO13 Black is tested directly. Other documented Open GoPro BLE cameras are enabled as compatible but untested.
+- Only DJI Osmo Action 6 and DJI Osmo Nano are currently enabled for DJI. Other DJI cameras are shown as Unsupported until tested.
 - DJI Osmo Pocket 3 is intentionally disabled for now. It appears to require DJI Mimo's Bluetooth plus Wi-Fi control path rather than the BLE-only path this app uses for simultaneous multicam control.
 - The app does not provide live preview or media browsing. Those workflows usually require Wi-Fi and are outside the current Bluetooth-first scope.
 - iOS Simulator cannot connect to physical Bluetooth cameras; use a real iPhone or iPad for hardware testing.

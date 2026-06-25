@@ -902,11 +902,40 @@ private extension Data {
     }
 
     var goProModel: CameraModel? {
-        let text = printableASCIIText.lowercased()
-        if text.contains("hero13") || text.contains("hero 13") || text.contains("h24.01") {
-            return .goproHero13Black
+        let normalizedText = printableASCIIText.lowercased().filter { $0.isLetter || $0.isNumber }
+        for signature in goProModelNameSignatures {
+            if normalizedText.contains(signature.normalizedName) {
+                return signature.model
+            }
         }
         return nil
+    }
+
+    var goProModelNameSignatures: [(normalizedName: String, model: CameraModel)] {
+        [
+            ("h2503", .goproLitHero),
+            ("lithero", .goproLitHero),
+            ("h2402", .goproMax2),
+            ("max2", .goproMax2),
+            ("h2401", .goproHero13Black),
+            ("hero13", .goproHero13Black),
+            ("13black", .goproHero13Black),
+            ("h2301", .goproHero12Black),
+            ("hero12", .goproHero12Black),
+            ("12black", .goproHero12Black),
+            ("h2203", .goproHero11BlackMini),
+            ("hero11blackmini", .goproHero11BlackMini),
+            ("11blackmini", .goproHero11BlackMini),
+            ("h2201", .goproHero11Black),
+            ("hero11", .goproHero11Black),
+            ("11black", .goproHero11Black),
+            ("h2101", .goproHero10Black),
+            ("hero10", .goproHero10Black),
+            ("10black", .goproHero10Black),
+            ("hd901", .goproHero9Black),
+            ("hero9", .goproHero9Black),
+            ("9black", .goproHero9Black)
+        ]
     }
 
     var printableASCIIText: String {

@@ -405,20 +405,56 @@ private extension BLECameraScanner {
         if let manufacturerData = advertisementData.flatMap(goProManufacturerData),
            manufacturerData.count >= 5 {
             let modelID = manufacturerData[manufacturerData.index(manufacturerData.startIndex, offsetBy: 4)]
-            if modelID == 65 {
-                return .goproHero13Black
+            if let model = Self.goProModelByID[modelID] {
+                return model
             }
         }
 
         let lowercasedName = name.lowercased()
-        if lowercasedName.contains("hero13")
-            || lowercasedName.contains("hero 13")
-            || lowercasedName.contains("13 black")
-            || lowercasedName.contains("h24.01") {
-            return .goproHero13Black
+        let normalizedName = lowercasedName.filter { $0.isLetter || $0.isNumber }
+        for signature in Self.goProModelNameSignatures {
+            if normalizedName.contains(signature.normalizedName) {
+                return signature.model
+            }
         }
         return .unknown
     }
+
+    static let goProModelByID: [UInt8: CameraModel] = [
+        70: .goproLitHero,
+        64: .goproMax2,
+        65: .goproHero13Black,
+        62: .goproHero12Black,
+        60: .goproHero11BlackMini,
+        58: .goproHero11Black,
+        57: .goproHero10Black,
+        55: .goproHero9Black
+    ]
+
+    static let goProModelNameSignatures: [(normalizedName: String, model: CameraModel)] = [
+        ("h2503", .goproLitHero),
+        ("lithero", .goproLitHero),
+        ("h2402", .goproMax2),
+        ("max2", .goproMax2),
+        ("h2401", .goproHero13Black),
+        ("hero13", .goproHero13Black),
+        ("13black", .goproHero13Black),
+        ("h2301", .goproHero12Black),
+        ("hero12", .goproHero12Black),
+        ("12black", .goproHero12Black),
+        ("h2203", .goproHero11BlackMini),
+        ("hero11blackmini", .goproHero11BlackMini),
+        ("11blackmini", .goproHero11BlackMini),
+        ("h2201", .goproHero11Black),
+        ("hero11", .goproHero11Black),
+        ("11black", .goproHero11Black),
+        ("h2101", .goproHero10Black),
+        ("hero10", .goproHero10Black),
+        ("10black", .goproHero10Black),
+        ("hd901", .goproHero9Black),
+        ("hero9", .goproHero9Black),
+        ("9black", .goproHero9Black)
+    ]
 
     func advertisedServiceUUIDs(from advertisementData: [String: Any]) -> [CBUUID] {
         let services = advertisementData[CBAdvertisementDataServiceUUIDsKey] as? [CBUUID] ?? []

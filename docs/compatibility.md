@@ -1,6 +1,6 @@
 # Camera Compatibility Notes
 
-Updated: 2026-06-24
+Updated: 2026-06-25
 
 ## Architecture
 
@@ -11,7 +11,7 @@ Brand-specific protocol details live behind `BLECameraDeviceClient` implementati
 - `GoProBLEClient` uses Open GoPro BLE commands, settings, and query/status packets.
 - `DJIExperimentalBLEClient` uses experimental DUML-style packets over DJI BLE services for supported Action/Nano cameras.
 
-The app uses an allowlist for camera control. Only the models below marked tested are enabled in the UI. Other discovered cameras are visible as Unsupported until their BLE command/status behavior has been tested directly.
+The app uses an allowlist for camera control. GoPro models listed by the public Open GoPro BLE API are enabled through the shared GoPro client, with HERO13 Black tested directly. DJI models are enabled only after direct hardware testing because DJI does not publish an equivalent Action/Nano BLE control API.
 
 ## GoPro HERO13 Black
 
@@ -33,6 +33,31 @@ Important behavior:
 
 - The app avoids passive auto-connect for remembered GoPros because a BLE connection can wake or keep the camera awake.
 - A GoPro can still be selected and started from Available state; that path is an explicit user command.
+
+## Other Open GoPro BLE Cameras
+
+Status: compatible, untested.
+
+The public Open GoPro BLE API lists these additional compatible cameras:
+
+- GoPro LIT HERO;
+- GoPro MAX 2;
+- GoPro HERO12 Black;
+- GoPro HERO11 Black Mini;
+- GoPro HERO11 Black;
+- GoPro HERO10 Black;
+- GoPro HERO9 Black.
+
+Implemented:
+
+- model detection from documented advertisement model IDs and common model-code/name strings;
+- the same Open GoPro BLE pair/connect, shutter, status, setting, and query client used by HERO13 Black.
+
+Known limits:
+
+- These models have not been verified locally with hardware.
+- Wake-from-off, pairing UX, mode switching, and setting/status labels may vary by firmware or model.
+- MAX/MAX 2 behavior may require additional camera-specific mode handling because 360 camera settings differ from HERO cameras.
 
 ## DJI Osmo Action 6
 
@@ -92,7 +117,7 @@ Current decision:
 
 Status: not supported.
 
-Any camera other than GoPro HERO13 Black, DJI Osmo Action 6, or DJI Osmo Nano is shown as Unsupported. This includes future GoPro models, older GoPro models, and other DJI models until they are tested on hardware and mapped explicitly.
+Any camera outside the documented Open GoPro BLE list, DJI Osmo Action 6, and DJI Osmo Nano is shown as Unsupported. Future GoPro models, older unsupported GoPro models, and other DJI models stay disabled until their BLE behavior is tested or documented clearly enough to map explicitly.
 
 ## Next Proof Gates
 
